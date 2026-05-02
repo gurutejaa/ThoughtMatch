@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { usePreviewMode } from "@/lib/preview";
 import { supabase } from "@/lib/supabase";
 
@@ -13,10 +13,13 @@ type WaitingState = {
 
 export default function Waiting() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const previewMode = usePreviewMode();
   const [state, setState] = useState<WaitingState>({});
-  const message = searchParams.get("message");
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMessage(new URLSearchParams(window.location.search).get("message"));
+  }, []);
 
   useEffect(() => {
     async function load() {
