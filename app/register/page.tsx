@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePreviewMode, withPreview } from "@/lib/preview";
@@ -47,6 +48,25 @@ const monthNames = [
   "November",
   "December"
 ];
+
+const neutralThemeStyle: CSSProperties = {
+  backgroundColor: "#ffffff",
+  color: "#000000",
+  "--background": "#ffffff",
+  "--background-strong": "#ffffff",
+  "--card": "rgba(255, 255, 255, 0.92)",
+  "--card-strong": "rgba(255, 255, 255, 0.98)",
+  "--foreground": "#000000",
+  "--muted": "rgba(0, 0, 0, 0.62)",
+  "--line": "rgba(0, 0, 0, 0.12)",
+  "--accent": "#000000",
+  "--accent-deep": "#000000",
+  "--accent-soft": "rgba(0, 0, 0, 0.08)",
+  "--primary": "#000000",
+  "--primary-contrast": "#ffffff",
+  "--surface": "#ffffff",
+  "--input-border": "rgba(0, 0, 0, 0.12)"
+} as CSSProperties;
 
 function getAge(year: string, month: string, day: string) {
   if (!year || !month || !day) return null;
@@ -209,28 +229,7 @@ export default function Register() {
   return (
     <main
       className="flex min-h-screen justify-center px-4 py-4"
-      style={
-        neutralTheme
-          ? {
-              backgroundColor: "#ffffff",
-              color: "#000000",
-              ["--background" as "--background"]: "#ffffff",
-              ["--background-strong" as "--background-strong"]: "#ffffff",
-              ["--card" as "--card"]: "rgba(255, 255, 255, 0.92)",
-              ["--card-strong" as "--card-strong"]: "rgba(255, 255, 255, 0.98)",
-              ["--foreground" as "--foreground"]: "#000000",
-              ["--muted" as "--muted"]: "rgba(0, 0, 0, 0.62)",
-              ["--line" as "--line"]: "rgba(0, 0, 0, 0.12)",
-              ["--accent" as "--accent"]: "#000000",
-              ["--accent-deep" as "--accent-deep"]: "#000000",
-              ["--accent-soft" as "--accent-soft"]: "rgba(0, 0, 0, 0.08)",
-              ["--primary" as "--primary"]: "#000000",
-              ["--primary-contrast" as "--primary-contrast"]: "#ffffff",
-              ["--surface" as "--surface"]: "#ffffff",
-              ["--input-border" as "--input-border"]: "rgba(0, 0, 0, 0.12)"
-            }
-          : undefined
-      }
+      style={neutralTheme ? neutralThemeStyle : undefined}
     >
       <div className="tm-shell max-w-[420px]">
         <div className="mb-4 pt-1">
