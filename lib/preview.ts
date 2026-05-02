@@ -1,23 +1,27 @@
 "use client";
 
-import { useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 function isProductionBuild() {
   return process.env.NODE_ENV === "production";
 }
 
 export function usePreviewMode() {
-  const searchParams = useSearchParams();
+  const [previewMode, setPreviewMode] = useState(false);
 
-  return useMemo(() => {
-    if (isProductionBuild()) return false;
+  useEffect(() => {
+    if (isProductionBuild()) {
+      setPreviewMode(false);
+      return;
+    }
 
     const envEnabled = process.env.NEXT_PUBLIC_DEV_MODE === "true";
-    const queryEnabled = searchParams.get("preview") === "true";
+    const queryEnabled = new URLSearchParams(window.location.search).get("preview") === "true";
 
-    return queryEnabled || envEnabled;
-  }, [searchParams]);
+    setPreviewMode(queryEnabled || envEnabled);
+  }, []);
+
+  return previewMode;
 }
 
 export function withPreview(path: string, previewMode: boolean) {
