@@ -54,9 +54,21 @@ export default function Reveal() {
         return;
       }
 
+      const { data: profile } = await supabase
+        .from("users")
+        .select("batch_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (!profile?.batch_id) {
+        router.push("/waiting?message=Your%20match%20isn%27t%20ready%20yet.");
+        return;
+      }
+
       const { data: topMatch } = await supabase
         .from("matches")
         .select("*")
+        .eq("batch_id", profile.batch_id)
         .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
         .order("total_score", { ascending: false })
         .limit(1)

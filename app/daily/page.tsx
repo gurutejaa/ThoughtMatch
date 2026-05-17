@@ -27,6 +27,7 @@ export default function Daily() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackPercent, setFeedbackPercent] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [batchId, setBatchId] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -99,6 +100,8 @@ export default function Daily() {
         return;
       }
 
+      setBatchId(profile.batch_id);
+
       const { data: batch } = await supabase
         .from("batches")
         .select("start_date")
@@ -115,7 +118,11 @@ export default function Daily() {
         .select("*")
         .order("day_number")
         .order("order_in_day");
-      const { data: answered } = await supabase.from("answers").select("question_id").eq("user_id", user.id);
+      const { data: answered } = await supabase
+        .from("answers")
+        .select("question_id")
+        .eq("user_id", user.id)
+        .eq("batch_id", profile.batch_id);
 
       const answeredIds = new Set((answered ?? []).map((answer: { question_id: string }) => answer.question_id));
       const remaining = (qs ?? []).filter((question: Question) => !answeredIds.has(question.id));
@@ -151,7 +158,7 @@ export default function Daily() {
   }
 
   async function handleSubmitAnswer(value: number | string) {
-    if (isSubmitting || (!userId && !previewMode) || questions.length === 0) return;
+    if (isSubmitting || (!userId && !previewMode) || (!batchId && !previewMode) || questions.length === 0) return;
 
     const activeQuestion = questions[current];
     const normalizedType = (activeQuestion.question_type ?? "multiple_choice") as QuestionType;
@@ -170,6 +177,7 @@ export default function Daily() {
       try {
         const { error } = await supabase.from("answers").insert({
           user_id: userId,
+          batch_id: batchId,
           question_id: activeQuestion.id,
           answer_index: typeof value === "number" ? value : null,
           answer_text: typeof value === "string" ? trimmedText : null

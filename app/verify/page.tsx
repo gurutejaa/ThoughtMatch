@@ -120,6 +120,25 @@ export default function Verify() {
       return;
     }
 
+    const { error: registrationError } = await supabase.from("batch_registrations").upsert(
+      {
+        user_id: session.user.id,
+        batch_id: batch.id,
+        email: reg.email,
+        normalized_phone: reg.normalized_phone
+      },
+      {
+        onConflict: "batch_id,user_id"
+      }
+    );
+
+    if (registrationError) {
+      setError(registrationError.message);
+      setLoading(false);
+      setMode("otp");
+      return;
+    }
+
     localStorage.removeItem("reg_form");
     const isPreview = new URLSearchParams(window.location.search).get("preview") === "true";
     router.push("/waiting" + (isPreview ? "?preview=true" : ""));

@@ -7,10 +7,21 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
+  const { data: registrations } = await supabase
+    .from('batch_registrations')
+    .select('user_id')
+    .eq('batch_id', batch_id)
+
+  const userIds = (registrations || []).map((registration) => registration.user_id)
+
+  if (userIds.length < 2) {
+    return new Response(JSON.stringify({ error: 'Not enough users' }), { status: 400 })
+  }
+
   const { data: users } = await supabase
     .from('users')
     .select('id, gender, interested_in')
-    .eq('batch_id', batch_id)
+    .in('id', userIds)
     .eq('verified', true)
 
   if (!users || users.length < 2) {
@@ -20,6 +31,7 @@ Deno.serve(async (req) => {
   const { data: answers } = await supabase
     .from('answers')
     .select('user_id, question_id, answer_index')
+    .eq('batch_id', batch_id)
 
   const { data: questions } = await supabase
     .from('questions')
