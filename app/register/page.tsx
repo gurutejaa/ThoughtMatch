@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePreviewMode, withPreview } from "@/lib/preview";
@@ -22,6 +22,11 @@ type FormState = {
 type ErrorState = {
   field: "name" | "email" | "phone" | "dob" | "gender" | "submit" | "";
   message: string;
+};
+
+type BatchWindow = {
+  closesAt: string | null;
+  status: string | null;
 };
 
 const initialForm: FormState = {
@@ -49,7 +54,7 @@ const monthNames = [
   "December"
 ];
 
-const neutralThemeStyle: CSSProperties = {
+const neutralThemeStyle = {
   backgroundColor: "#ffffff",
   color: "#000000",
   "--background": "#ffffff",
@@ -66,7 +71,7 @@ const neutralThemeStyle: CSSProperties = {
   "--primary-contrast": "#ffffff",
   "--surface": "#ffffff",
   "--input-border": "rgba(0, 0, 0, 0.12)"
-} as CSSProperties;
+} as React.CSSProperties;
 
 function getAge(year: string, month: string, day: string) {
   if (!year || !month || !day) return null;
@@ -85,16 +90,35 @@ function getAge(year: string, month: string, day: string) {
   return age;
 }
 
+function formatCountdown(msRemaining: number) {
+  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  }
+
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
 export default function Register() {
   const router = useRouter();
   const previewMode = usePreviewMode();
   const [form, setForm] = useState<FormState>(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState>({ field: "", message: "" });
+  const [batchWindow, setBatchWindow] = useState<BatchWindow>({ closesAt: null, status: null });
+  const [now, setNow] = useState(() => Date.now());
 
   const zodiac =
     form.dob_month && form.dob_day ? getZodiac(Number(form.dob_month), Number(form.dob_day)) : "";
   const neutralTheme = !form.gender;
+  const closesAtMs = batchWindow.closesAt ? new Date(batchWindow.closesAt).getTime() : null;
+  const countdownExpired = closesAtMs !== null && closesAtMs <= now;
+  const registrationUnavailable = !previewMode && (!batchWindow.closesAt || countdownExpired);
+  const countdownLabel = closesAtMs !== null ? formatCountdown(closesAtMs - now) : null;
 
   useEffect(() => {
     if (!form.gender) {
@@ -105,6 +129,36 @@ export default function Register() {
     persistThemeGender(form.gender);
     applyThemeGender(form.gender);
   }, [form.gender]);
+
+  useEffect(() => {
+    if (previewMode) {
+      const closesAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+      setBatchWindow({ closesAt, status: "active" });
+      return;
+    }
+
+    async function loadBatchWindow() {
+      const { data: batch } = await supabase
+        .from("batches")
+        .select("registration_closes_at, status")
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setBatchWindow({
+        closesAt: batch?.registration_closes_at ?? null,
+        status: batch?.status ?? null
+      });
+    }
+
+    void loadBatchWindow();
+  }, [previewMode]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   function handleFieldChange(field: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -144,6 +198,16 @@ export default function Register() {
   }
 
   async function handleSubmit() {
+    if (registrationUnavailable) {
+      setError({
+        field: "submit",
+        message: countdownExpired
+          ? "Registration is closed for this batch."
+          : "There is no active registration window right now."
+      });
+      return;
+    }
+
     if (!previewMode) {
       const validationError = validateForm();
       if (validationError) {
@@ -243,6 +307,30 @@ export default function Register() {
           </p>
         </div>
 
+        <section
+          className="mb-4 rounded-[1.5rem] border px-4 py-4"
+          style={{ borderColor: "var(--input-border)", backgroundColor: "var(--surface)" }}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
+            Registration window
+          </p>
+          <p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-[var(--foreground)]">
+            {countdownLabel ?? "Waiting for schedule"}
+          </p>
+          <p className="mt-2 text-sm text-[var(--muted)]">
+            Registration closes{" "}
+            {batchWindow.closesAt ? new Date(batchWindow.closesAt).toLocaleString() : "when the next batch is opened"}.
+          </p>
+          {countdownExpired ? (
+            <p className="mt-2 text-sm font-medium text-red-600">Registration is closed for this batch.</p>
+          ) : null}
+          {!countdownExpired && !batchWindow.closesAt && !previewMode ? (
+            <p className="mt-2 text-sm font-medium text-[var(--muted)]">
+              No active registration window is open right now.
+            </p>
+          ) : null}
+        </section>
+
         <section className="space-y-2.5">
           <div className="grid grid-cols-2 gap-2.5">
             <input
@@ -335,11 +423,11 @@ export default function Register() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading}
+            disabled={loading || registrationUnavailable}
             className="mt-1 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
           >
-            {loading ? "Sending code..." : "Continue"}
+            {loading ? "Sending code..." : registrationUnavailable ? "Registration closed" : "Continue"}
           </button>
         </section>
       </div>
