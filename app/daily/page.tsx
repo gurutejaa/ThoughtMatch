@@ -102,22 +102,14 @@ export default function Daily() {
 
       setBatchId(profile.batch_id);
 
-      const { data: batch } = await supabase
-        .from("batches")
-        .select("start_date")
-        .eq("id", profile.batch_id)
-        .single();
+      const { data: batch } = await supabase.from("batches").select("start_date").eq("id", profile.batch_id).single();
 
       if (!batch?.start_date) {
         router.push("/waiting");
         return;
       }
 
-      const { data: qs } = await supabase
-        .from("questions")
-        .select("*")
-        .order("day_number")
-        .order("order_in_day");
+      const { data: qs } = await supabase.from("questions").select("*").order("day_number").order("order_in_day");
       const { data: answered } = await supabase
         .from("answers")
         .select("question_id")
@@ -218,7 +210,9 @@ export default function Daily() {
     <main className="flex min-h-screen justify-center bg-white px-6 pt-6">
       <div className="w-full max-w-[420px]">
         <div className="flex items-center justify-end text-[13px] text-black">
-          <span>{current + 1} of {questions.length}</span>
+          <span>
+            {current + 1} of {questions.length}
+          </span>
         </div>
 
         <QuestionCard

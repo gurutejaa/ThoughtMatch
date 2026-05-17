@@ -306,11 +306,11 @@ export default function Register() {
 
   return (
     <main
-      className="flex h-screen items-center justify-center overflow-hidden px-4 py-2"
+      className="flex min-h-screen justify-center px-4 py-4"
       style={neutralTheme ? neutralThemeStyle : undefined}
     >
-      <div className="tm-shell flex h-full max-h-full max-w-[420px] flex-col justify-center overflow-hidden">
-        <div className="mb-2 shrink-0 pt-1">
+      <div className="tm-shell max-w-[420px]">
+        <div className="mb-2 pt-1">
           <h1 className="text-left text-[2rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
             <span className="block">People who</span>
             <span className="block">think like</span>

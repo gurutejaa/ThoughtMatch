@@ -105,8 +105,8 @@ export default function MatchReveal({
 
       <div className="flex flex-wrap justify-center gap-3 text-xs text-[var(--muted)]">
         <span>Phone verified</span>
-        <span>Completed all days</span>
-        <span>Based on 6 responses</span>
+        <span>Completed all questions</span>
+        <span>Based on 8 responses</span>
       </div>
     </div>
   );
