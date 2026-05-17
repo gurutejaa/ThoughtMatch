@@ -306,23 +306,23 @@ export default function Register() {
 
   return (
     <main
-      className="flex h-screen items-center justify-center overflow-hidden px-4 py-3"
+      className="flex h-screen items-center justify-center overflow-hidden px-4 py-2"
       style={neutralTheme ? neutralThemeStyle : undefined}
     >
-      <div className="tm-shell flex h-full max-h-full max-w-[420px] flex-col overflow-hidden">
-        <div className="mb-3 shrink-0 pt-1">
-          <h1 className="text-left text-[2.45rem] font-extrabold leading-[0.93] tracking-[-0.06em] text-[var(--foreground)]">
+      <div className="tm-shell flex h-full max-h-full max-w-[420px] flex-col justify-center overflow-hidden">
+        <div className="mb-2 shrink-0 pt-1">
+          <h1 className="text-left text-[2rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
             <span className="block">People who</span>
             <span className="block">think like</span>
             <span className="block">you exist.</span>
           </h1>
-          <p className="mt-3 max-w-[20rem] text-left text-[13px] font-medium leading-5 text-[var(--muted)]">
+          <p className="mt-2 max-w-[18rem] text-left text-[12px] font-medium leading-4 text-[var(--muted)]">
             Join a matching experience built around mindset, behavior, and meaningful connection.
           </p>
         </div>
 
         <section
-          className="relative mb-4 overflow-hidden rounded-[2rem] border px-5 py-4"
+          className="relative mb-3 overflow-hidden rounded-[1.7rem] border px-4 py-3"
           style={{
             borderColor: "rgba(0, 0, 0, 0.08)",
             background:
@@ -339,14 +339,14 @@ export default function Register() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--muted)]">
                 Registration Window
               </p>
-              <h2 className="mt-2 text-[1.75rem] font-black leading-[0.95] tracking-[-0.06em] text-[var(--foreground)]">
+              <h2 className="mt-1.5 text-[1.35rem] font-black leading-[0.95] tracking-[-0.06em] text-[var(--foreground)]">
                 {countdownExpired
                   ? "This round is closed."
                   : countdownParts
                     ? "Your entry window is open."
                     : "Next batch opens soon."}
               </h2>
-              <p className="mt-3 max-w-[15rem] text-[13px] leading-5 text-[var(--muted)]">
+              <p className="mt-2 max-w-[13rem] text-[12px] leading-4 text-[var(--muted)]">
                 {countdownExpired
                   ? "This batch is no longer accepting entries."
                   : countdownParts
@@ -356,17 +356,17 @@ export default function Register() {
             </div>
 
             <div
-              className="rounded-[1.4rem] border px-3 py-2 text-right"
+              className="rounded-[1.1rem] border px-2.5 py-2 text-right"
               style={{ borderColor: "rgba(0, 0, 0, 0.08)", backgroundColor: "rgba(255, 255, 255, 0.76)" }}
             >
               <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--muted)]">Closes</p>
-              <p className="mt-1 text-xs font-semibold text-[var(--foreground)]">
+              <p className="mt-1 text-[11px] font-semibold leading-4 text-[var(--foreground)]">
                 {batchWindow.closesAt ? new Date(batchWindow.closesAt).toLocaleString() : "Waiting for schedule"}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-2.5">
+          <div className="mt-3 grid grid-cols-3 gap-2">
             {[
               { label: "Hours", value: countdownParts?.hours ?? "--" },
               { label: "Minutes", value: countdownParts?.minutes ?? "--" },
@@ -374,16 +374,16 @@ export default function Register() {
             ].map((part) => (
               <div
                 key={part.label}
-                className="rounded-[1.35rem] border px-3 py-3 text-center"
+                className="rounded-[1rem] border px-2 py-2 text-center"
                 style={{ borderColor: "rgba(0, 0, 0, 0.08)", backgroundColor: "rgba(255, 255, 255, 0.82)" }}
               >
-                <p className="text-[1.6rem] font-black tracking-[-0.08em] text-[var(--foreground)]">{part.value}</p>
+                <p className="text-[1.3rem] font-black tracking-[-0.08em] text-[var(--foreground)]">{part.value}</p>
                 <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">{part.label}</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-3 flex items-center justify-between gap-3 text-[12px]">
+          <div className="mt-2.5 flex items-center justify-between gap-3 text-[11px]">
             <p className="font-medium text-[var(--foreground)]">
               {countdownLabel ? `${countdownLabel} remaining` : "Waiting for an active batch"}
             </p>
@@ -395,17 +395,17 @@ export default function Register() {
           </div>
         </section>
 
-        <section className="flex-1 space-y-2 overflow-y-auto pr-1">
-          <div className="grid grid-cols-2 gap-2.5">
+        <section className="space-y-1.5">
+          <div className="grid grid-cols-2 gap-2">
             <input
-              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               placeholder="Full name"
               value={form.name}
               onChange={(event) => handleFieldChange("name", event.target.value)}
             />
             <select
-              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none"
+              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               value={form.gender}
               onChange={(event) => handleFieldChange("gender", event.target.value)}
@@ -419,7 +419,7 @@ export default function Register() {
           {error.field === "gender" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
 
           <input
-            className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+            className="w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
             style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
             placeholder="Email address"
             type="email"
@@ -429,7 +429,7 @@ export default function Register() {
           {error.field === "email" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
 
           <input
-            className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+            className="w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
             style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
             placeholder="(555) 000-0000"
             type="tel"
@@ -438,9 +438,9 @@ export default function Register() {
           />
           {error.field === "phone" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
 
-          <div className="grid grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-3 gap-2">
             <select
-              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
+              className="w-full rounded-xl px-2.5 py-2.5 text-sm text-[var(--foreground)] outline-none"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               value={form.dob_month}
               onChange={(event) => handleFieldChange("dob_month", event.target.value)}
@@ -453,7 +453,7 @@ export default function Register() {
               ))}
             </select>
             <select
-              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
+              className="w-full rounded-xl px-2.5 py-2.5 text-sm text-[var(--foreground)] outline-none"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               value={form.dob_day}
               onChange={(event) => handleFieldChange("dob_day", event.target.value)}
@@ -466,7 +466,7 @@ export default function Register() {
               ))}
             </select>
             <select
-              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
+              className="w-full rounded-xl px-2.5 py-2.5 text-sm text-[var(--foreground)] outline-none"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               value={form.dob_year}
               onChange={(event) => handleFieldChange("dob_year", event.target.value)}
@@ -488,7 +488,7 @@ export default function Register() {
             type="button"
             onClick={handleSubmit}
             disabled={loading || registrationUnavailable}
-            className="mt-1 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-1 w-full rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
           >
             {loading ? "Sending code..." : registrationUnavailable ? "Registration closed" : "Continue"}
