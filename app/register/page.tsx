@@ -309,8 +309,8 @@ export default function Register() {
       className="flex h-screen items-center justify-center overflow-hidden px-4 py-3"
       style={neutralTheme ? neutralThemeStyle : undefined}
     >
-      <div className="tm-shell max-h-full max-w-[420px] overflow-hidden">
-        <div className="mb-3 pt-1">
+      <div className="tm-shell flex h-full max-h-full max-w-[420px] flex-col overflow-hidden">
+        <div className="mb-3 shrink-0 pt-1">
           <h1 className="text-left text-[2.45rem] font-extrabold leading-[0.93] tracking-[-0.06em] text-[var(--foreground)]">
             <span className="block">People who</span>
             <span className="block">think like</span>
@@ -395,7 +395,7 @@ export default function Register() {
           </div>
         </section>
 
-        <section className="space-y-2">
+        <section className="flex-1 space-y-2 overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-2.5">
             <input
               className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
