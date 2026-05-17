@@ -306,11 +306,11 @@ export default function Register() {
 
   return (
     <main
-      className="flex min-h-screen justify-center px-4 py-4"
+      className="flex h-screen items-center justify-center overflow-hidden px-4 py-3"
       style={neutralTheme ? neutralThemeStyle : undefined}
     >
-      <div className="tm-shell max-w-[420px]">
-        <div className="mb-4 pt-1">
+      <div className="tm-shell max-h-full max-w-[420px] overflow-hidden">
+        <div className="mb-3 pt-1">
           <h1 className="text-left text-[2.45rem] font-extrabold leading-[0.93] tracking-[-0.06em] text-[var(--foreground)]">
             <span className="block">People who</span>
             <span className="block">think like</span>
@@ -322,7 +322,7 @@ export default function Register() {
         </div>
 
         <section
-          className="relative mb-5 overflow-hidden rounded-[2rem] border px-5 py-5"
+          className="relative mb-4 overflow-hidden rounded-[2rem] border px-5 py-4"
           style={{
             borderColor: "rgba(0, 0, 0, 0.08)",
             background:
@@ -366,7 +366,7 @@ export default function Register() {
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-2.5">
+          <div className="mt-4 grid grid-cols-3 gap-2.5">
             {[
               { label: "Hours", value: countdownParts?.hours ?? "--" },
               { label: "Minutes", value: countdownParts?.minutes ?? "--" },
@@ -383,7 +383,7 @@ export default function Register() {
             ))}
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-3 text-[12px]">
+          <div className="mt-3 flex items-center justify-between gap-3 text-[12px]">
             <p className="font-medium text-[var(--foreground)]">
               {countdownLabel ? `${countdownLabel} remaining` : "Waiting for an active batch"}
             </p>
@@ -395,7 +395,7 @@ export default function Register() {
           </div>
         </section>
 
-        <section className="space-y-2.5">
+        <section className="space-y-2">
           <div className="grid grid-cols-2 gap-2.5">
             <input
               className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
