@@ -103,6 +103,19 @@ function formatCountdown(msRemaining: number) {
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
+function getCountdownParts(msRemaining: number) {
+  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return {
+    hours: String(hours).padStart(2, "0"),
+    minutes: String(minutes).padStart(2, "0"),
+    seconds: String(seconds).padStart(2, "0")
+  };
+}
+
 export default function Register() {
   const router = useRouter();
   const previewMode = usePreviewMode();
@@ -119,6 +132,7 @@ export default function Register() {
   const countdownExpired = closesAtMs !== null && closesAtMs <= now;
   const registrationUnavailable = !previewMode && (!batchWindow.closesAt || countdownExpired);
   const countdownLabel = closesAtMs !== null ? formatCountdown(closesAtMs - now) : null;
+  const countdownParts = closesAtMs !== null ? getCountdownParts(closesAtMs - now) : null;
 
   useEffect(() => {
     if (!form.gender) {
@@ -308,27 +322,77 @@ export default function Register() {
         </div>
 
         <section
-          className="mb-4 rounded-[1.5rem] border px-4 py-4"
-          style={{ borderColor: "var(--input-border)", backgroundColor: "var(--surface)" }}
+          className="relative mb-5 overflow-hidden rounded-[2rem] border px-5 py-5"
+          style={{
+            borderColor: "rgba(0, 0, 0, 0.08)",
+            background:
+              "radial-gradient(circle at top left, rgba(0, 0, 0, 0.06), transparent 42%), linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 245, 245, 0.92))"
+          }}
         >
-          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--muted)]">
-            Registration window
-          </p>
-          <p className="mt-2 text-2xl font-extrabold tracking-[-0.04em] text-[var(--foreground)]">
-            {countdownLabel ?? "Waiting for schedule"}
-          </p>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Registration closes{" "}
-            {batchWindow.closesAt ? new Date(batchWindow.closesAt).toLocaleString() : "when the next batch is opened"}.
-          </p>
-          {countdownExpired ? (
-            <p className="mt-2 text-sm font-medium text-red-600">Registration is closed for this batch.</p>
-          ) : null}
-          {!countdownExpired && !batchWindow.closesAt && !previewMode ? (
-            <p className="mt-2 text-sm font-medium text-[var(--muted)]">
-              No active registration window is open right now.
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-px"
+            style={{ background: "linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.18), transparent)" }}
+          />
+
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--muted)]">
+                Registration Window
+              </p>
+              <h2 className="mt-2 text-[1.75rem] font-black leading-[0.95] tracking-[-0.06em] text-[var(--foreground)]">
+                {countdownExpired
+                  ? "This round is closed."
+                  : countdownParts
+                    ? "Your entry window is open."
+                    : "Next batch opens soon."}
+              </h2>
+              <p className="mt-3 max-w-[15rem] text-[13px] leading-5 text-[var(--muted)]">
+                {countdownExpired
+                  ? "This batch is no longer accepting entries."
+                  : countdownParts
+                    ? "Claim your place before this registration window closes."
+                    : "A live registration window will appear here as soon as your next batch is scheduled."}
+              </p>
+            </div>
+
+            <div
+              className="rounded-[1.4rem] border px-3 py-2 text-right"
+              style={{ borderColor: "rgba(0, 0, 0, 0.08)", backgroundColor: "rgba(255, 255, 255, 0.76)" }}
+            >
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--muted)]">Closes</p>
+              <p className="mt-1 text-xs font-semibold text-[var(--foreground)]">
+                {batchWindow.closesAt ? new Date(batchWindow.closesAt).toLocaleString() : "Waiting for schedule"}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-2.5">
+            {[
+              { label: "Hours", value: countdownParts?.hours ?? "--" },
+              { label: "Minutes", value: countdownParts?.minutes ?? "--" },
+              { label: "Seconds", value: countdownParts?.seconds ?? "--" }
+            ].map((part) => (
+              <div
+                key={part.label}
+                className="rounded-[1.35rem] border px-3 py-3 text-center"
+                style={{ borderColor: "rgba(0, 0, 0, 0.08)", backgroundColor: "rgba(255, 255, 255, 0.82)" }}
+              >
+                <p className="text-[1.6rem] font-black tracking-[-0.08em] text-[var(--foreground)]">{part.value}</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">{part.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3 text-[12px]">
+            <p className="font-medium text-[var(--foreground)]">
+              {countdownLabel ? `${countdownLabel} remaining` : "Waiting for an active batch"}
             </p>
-          ) : null}
+            {countdownExpired ? (
+              <p className="font-semibold text-red-600">Registration closed</p>
+            ) : (
+              <p className="text-[var(--muted)]">Limited-time entry</p>
+            )}
+          </div>
         </section>
 
         <section className="space-y-2.5">
