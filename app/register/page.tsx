@@ -322,7 +322,7 @@ export default function Register() {
         </div>
 
         <section
-          className="relative mb-3 overflow-hidden rounded-[1.7rem] border px-4 py-3"
+          className="relative mb-3 overflow-hidden rounded-[1.7rem] border px-4 py-4"
           style={{
             borderColor: "rgba(0, 0, 0, 0.08)",
             background:
@@ -335,7 +335,7 @@ export default function Register() {
           />
 
           <div className="flex items-start justify-between gap-4">
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--muted)]">
                 Registration Window
               </p>
@@ -356,41 +356,37 @@ export default function Register() {
             </div>
 
             <div
-              className="rounded-[1.1rem] border px-2.5 py-2 text-right"
-              style={{ borderColor: "rgba(0, 0, 0, 0.08)", backgroundColor: "rgba(255, 255, 255, 0.76)" }}
+              className="w-[9.5rem] shrink-0 rounded-[1.3rem] border px-3 py-3 text-right"
+              style={{ borderColor: "rgba(0, 0, 0, 0.08)", backgroundColor: "rgba(255, 255, 255, 0.78)" }}
             >
-              <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--muted)]">Closes</p>
-              <p className="mt-1 text-[11px] font-semibold leading-4 text-[var(--foreground)]">
-                {batchWindow.closesAt ? new Date(batchWindow.closesAt).toLocaleString() : "Waiting for schedule"}
+              <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--muted)]">Time Left</p>
+              <div
+                className="mt-2 text-[2.15rem] leading-[0.88] tracking-[-0.08em] text-[var(--foreground)]"
+                style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontWeight: 700 }}
+              >
+                <span className="block">
+                  {countdownParts?.hours ?? "--"}:{countdownParts?.minutes ?? "--"}
+                </span>
+                <span className="block text-[1.5rem]">
+                  {countdownParts?.seconds ?? "--"}
+                </span>
+              </div>
+              <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-[var(--muted)]">
+                Hours : Minutes : Seconds
               </p>
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            {[
-              { label: "Hours", value: countdownParts?.hours ?? "--" },
-              { label: "Minutes", value: countdownParts?.minutes ?? "--" },
-              { label: "Seconds", value: countdownParts?.seconds ?? "--" }
-            ].map((part) => (
-              <div
-                key={part.label}
-                className="rounded-[1rem] border px-2 py-2 text-center"
-                style={{ borderColor: "rgba(0, 0, 0, 0.08)", backgroundColor: "rgba(255, 255, 255, 0.82)" }}
-              >
-                <p className="text-[1.3rem] font-black tracking-[-0.08em] text-[var(--foreground)]">{part.value}</p>
-                <p className="mt-1 text-[10px] uppercase tracking-[0.2em] text-[var(--muted)]">{part.label}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-2.5 flex items-center justify-between gap-3 text-[11px]">
-            <p className="font-medium text-[var(--foreground)]">
-              {countdownLabel ? `${countdownLabel} remaining` : "Waiting for an active batch"}
+          <div className="mt-3 flex items-center justify-between gap-3 text-[11px]">
+            <p className="max-w-[13rem] text-[var(--muted)]">
+              Closes {batchWindow.closesAt ? new Date(batchWindow.closesAt).toLocaleString() : "when the next batch is opened"}.
             </p>
             {countdownExpired ? (
               <p className="font-semibold text-red-600">Registration closed</p>
             ) : (
-              <p className="text-[var(--muted)]">Limited-time entry</p>
+              <p className="font-medium text-[var(--foreground)]">
+                {countdownLabel ? `${countdownLabel} remaining` : "Limited-time entry"}
+              </p>
             )}
           </div>
         </section>
