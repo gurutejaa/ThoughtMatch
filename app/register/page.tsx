@@ -318,7 +318,7 @@ export default function Register() {
             className="select-none text-[5.8rem] font-semibold tracking-[-0.08em]"
             style={{
               color: "var(--foreground)",
-              opacity: 0.05,
+              opacity: 0.16,
               transform: "rotate(-15deg)",
               whiteSpace: "nowrap"
             }}
@@ -328,11 +328,8 @@ export default function Register() {
         </div>
 
         <div className="relative z-10 mb-2 flex justify-end">
-          <p className="text-[12px] font-medium text-[var(--accent-deep)]">
-            Closes{" "}
-            {batchWindow.closesAt
-              ? new Date(batchWindow.closesAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
-              : "soon"}
+          <p className="text-[1.15rem] font-extrabold tracking-[-0.04em] text-[var(--accent-deep)]">
+            {countdownLabel ?? "--"}
           </p>
         </div>
 
