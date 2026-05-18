@@ -309,7 +309,34 @@ export default function Register() {
       className="flex min-h-screen justify-center px-4 py-4"
       style={neutralTheme ? neutralThemeStyle : undefined}
     >
-      <div className="tm-shell max-w-[420px]">
+      <div className="tm-shell relative max-w-[420px]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden"
+        >
+          <span
+            className="select-none text-[5.8rem] font-semibold tracking-[-0.08em]"
+            style={{
+              color: "var(--foreground)",
+              opacity: 0.05,
+              transform: "rotate(-15deg)",
+              whiteSpace: "nowrap"
+            }}
+          >
+            ThoughtMatch
+          </span>
+        </div>
+
+        <div className="relative z-10 mb-2 flex justify-end">
+          <p className="text-[12px] font-medium text-[var(--accent-deep)]">
+            Closes{" "}
+            {batchWindow.closesAt
+              ? new Date(batchWindow.closesAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+              : "soon"}
+          </p>
+        </div>
+
+        <div className="relative z-10">
         <div className="mb-2 pt-1">
           <h1 className="text-left text-[2rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
             <span className="block">People who</span>
@@ -320,76 +347,6 @@ export default function Register() {
             Join a matching experience built around mindset, behavior, and meaningful connection.
           </p>
         </div>
-
-        <section
-          className="relative mb-3 overflow-hidden rounded-[1.7rem] border px-4 py-4"
-          style={{
-            borderColor: "rgba(0, 0, 0, 0.08)",
-            background:
-              "radial-gradient(circle at top left, rgba(0, 0, 0, 0.06), transparent 42%), linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 245, 245, 0.92))"
-          }}
-        >
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-px"
-            style={{ background: "linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.18), transparent)" }}
-          />
-
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--muted)]">
-                Registration Window
-              </p>
-              <h2 className="mt-1.5 text-[1.35rem] font-black leading-[0.95] tracking-[-0.06em] text-[var(--foreground)]">
-                {countdownExpired
-                  ? "This round is closed."
-                  : countdownParts
-                    ? "Your entry window is open."
-                    : "Next batch opens soon."}
-              </h2>
-              <p className="mt-2 max-w-[13rem] text-[12px] leading-4 text-[var(--muted)]">
-                {countdownExpired
-                  ? "This batch is no longer accepting entries."
-                  : countdownParts
-                    ? "Claim your place before this registration window closes."
-                    : "A live registration window will appear here as soon as your next batch is scheduled."}
-              </p>
-            </div>
-
-            <div
-              className="w-[9.5rem] shrink-0 rounded-[1.3rem] border px-3 py-3 text-right"
-              style={{ borderColor: "rgba(0, 0, 0, 0.08)", backgroundColor: "rgba(255, 255, 255, 0.78)" }}
-            >
-              <p className="text-[10px] uppercase tracking-[0.24em] text-[var(--muted)]">Time Left</p>
-              <div
-                className="mt-2 text-[2.15rem] leading-[0.88] tracking-[-0.08em] text-[var(--foreground)]"
-                style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontWeight: 700 }}
-              >
-                <span className="block">
-                  {countdownParts?.hours ?? "--"}:{countdownParts?.minutes ?? "--"}
-                </span>
-                <span className="block text-[1.5rem]">
-                  {countdownParts?.seconds ?? "--"}
-                </span>
-              </div>
-              <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-[var(--muted)]">
-                Hours : Minutes : Seconds
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between gap-3 text-[11px]">
-            <p className="max-w-[13rem] text-[var(--muted)]">
-              Closes {batchWindow.closesAt ? new Date(batchWindow.closesAt).toLocaleString() : "when the next batch is opened"}.
-            </p>
-            {countdownExpired ? (
-              <p className="font-semibold text-red-600">Registration closed</p>
-            ) : (
-              <p className="font-medium text-[var(--foreground)]">
-                {countdownLabel ? `${countdownLabel} remaining` : "Limited-time entry"}
-              </p>
-            )}
-          </div>
-        </section>
 
         <section className="space-y-1.5">
           <div className="grid grid-cols-2 gap-2">
@@ -490,6 +447,7 @@ export default function Register() {
             {loading ? "Sending code..." : registrationUnavailable ? "Registration closed" : "Continue"}
           </button>
         </section>
+        </div>
       </div>
     </main>
   );
