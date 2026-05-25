@@ -330,7 +330,11 @@ export default function Register() {
           <div className="mt-3">
             <p
               className="text-left text-[1.75rem] leading-none tracking-[-0.06em] text-[var(--accent-deep)]"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontWeight: 700, color: timerColor }}
+              style={{
+                fontFamily: '"Bodoni 72", "Didot", "Times New Roman", serif',
+                fontWeight: 700,
+                color: timerColor
+              }}
             >
               {countdownLabel ?? "--"}
             </p>
