@@ -9,6 +9,7 @@ type WaitingState = {
   closesAt?: string | null;
   status?: string | null;
   name?: string | null;
+  batchId?: string | null;
 };
 
 export default function Waiting() {
@@ -66,6 +67,7 @@ export default function Waiting() {
 
       setState({
         name: profile.name,
+        batchId: profile.batch_id,
         closesAt: batch?.registration_closes_at,
         status: batch?.status
       });
@@ -76,15 +78,34 @@ export default function Waiting() {
 
   useEffect(() => {
     if (previewMode) return;
-    if (!state.closesAt) return;
+    if (!state.closesAt || !state.batchId || state.status !== "active") return;
 
     const closesAt = new Date(state.closesAt).getTime();
-    if (Number.isNaN(closesAt)) return;
+    if (Number.isNaN(closesAt) || now < closesAt) return;
 
-    if (now >= closesAt && state.status === "active") {
-      router.push("/daily");
+    async function routeAfterClose() {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const [{ count: totalQuestions }, { count: answeredQuestions }] = await Promise.all([
+        supabase.from("questions").select("*", { count: "exact", head: true }),
+        supabase
+          .from("answers")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("batch_id", state.batchId)
+      ]);
+
+      if ((answeredQuestions ?? 0) < (totalQuestions ?? 0)) {
+        router.push("/daily");
+      }
     }
-  }, [now, previewMode, router, state.closesAt, state.status]);
+
+    void routeAfterClose();
+  }, [now, previewMode, router, state.batchId, state.closesAt, state.status]);
 
   return (
     <main className="flex min-h-screen items-center px-6 py-10">

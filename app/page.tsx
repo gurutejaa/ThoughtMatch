@@ -59,6 +59,20 @@ export default function Home() {
         return;
       }
 
+      const [{ count: totalQuestions }, { count: answeredQuestions }] = await Promise.all([
+        supabase.from("questions").select("*", { count: "exact", head: true }),
+        supabase
+          .from("answers")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("batch_id", profile.batch_id)
+      ]);
+
+      if ((answeredQuestions ?? 0) >= (totalQuestions ?? 0)) {
+        router.push("/waiting");
+        return;
+      }
+
       router.push("/daily");
     }
 
