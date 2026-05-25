@@ -29,6 +29,12 @@ type BatchWindow = {
   status: string | null;
 };
 
+function getReadableRandomColor() {
+  const channel = () => Math.floor(Math.random() * 156);
+  const toHex = (value: number) => value.toString(16).padStart(2, "0");
+  return `#${toHex(channel())}${toHex(channel())}${toHex(channel())}`;
+}
+
 const initialForm: FormState = {
   name: "",
   email: "",
@@ -124,6 +130,7 @@ export default function Register() {
   const [error, setError] = useState<ErrorState>({ field: "", message: "" });
   const [batchWindow, setBatchWindow] = useState<BatchWindow>({ closesAt: null, status: null });
   const [now, setNow] = useState(() => Date.now());
+  const [timerColor, setTimerColor] = useState(() => getReadableRandomColor());
 
   const zodiac =
     form.dob_month && form.dob_day ? getZodiac(Number(form.dob_month), Number(form.dob_day)) : "";
@@ -170,7 +177,10 @@ export default function Register() {
   }, [previewMode]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+      setTimerColor(getReadableRandomColor());
+    }, 1000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -320,7 +330,7 @@ export default function Register() {
           <div className="mt-3">
             <p
               className="text-left text-[1.75rem] leading-none tracking-[-0.06em] text-[var(--accent-deep)]"
-              style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontWeight: 700 }}
+              style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontWeight: 700, color: timerColor }}
             >
               {countdownLabel ?? "--"}
             </p>
