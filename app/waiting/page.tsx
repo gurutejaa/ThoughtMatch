@@ -16,9 +16,15 @@ export default function Waiting() {
   const previewMode = usePreviewMode();
   const [state, setState] = useState<WaitingState>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     setMessage(new URLSearchParams(window.location.search).get("message"));
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -68,6 +74,18 @@ export default function Waiting() {
     load();
   }, [previewMode, router]);
 
+  useEffect(() => {
+    if (previewMode) return;
+    if (!state.closesAt) return;
+
+    const closesAt = new Date(state.closesAt).getTime();
+    if (Number.isNaN(closesAt)) return;
+
+    if (now >= closesAt && state.status === "active") {
+      router.push("/daily");
+    }
+  }, [now, previewMode, router, state.closesAt, state.status]);
+
   return (
     <main className="flex min-h-screen items-center px-6 py-10">
       <div className="tm-shell">
@@ -93,6 +111,11 @@ export default function Waiting() {
             <p className="mt-3 text-sm text-white/68">
               Registration closes at: {state.closesAt ? new Date(state.closesAt).toLocaleString() : "Waiting for schedule"}
             </p>
+            {state.closesAt && new Date(state.closesAt).getTime() > now ? (
+              <p className="mt-2 text-xs text-white/58">
+                Questions open automatically when this timer ends.
+              </p>
+            ) : null}
           </div>
         </section>
 

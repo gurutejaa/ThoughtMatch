@@ -38,7 +38,7 @@ export default function Home() {
 
       const { data: batch } = await supabase
         .from("batches")
-        .select("status, start_date")
+        .select("status, registration_closes_at")
         .eq("id", profile.batch_id)
         .maybeSingle();
 
@@ -52,12 +52,9 @@ export default function Home() {
         return;
       }
 
-      const start = new Date(batch.start_date + "T00:00:00Z");
-      const now = new Date();
-      const nowUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-      const dayDiff = Math.floor((nowUTC.getTime() - start.getTime()) / 86400000);
+      const closesAt = batch.registration_closes_at ? new Date(batch.registration_closes_at).getTime() : null;
 
-      if (dayDiff < 0) {
+      if (!closesAt || Date.now() < closesAt) {
         router.push("/waiting");
         return;
       }

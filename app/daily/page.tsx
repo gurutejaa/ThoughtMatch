@@ -102,9 +102,19 @@ export default function Daily() {
 
       setBatchId(profile.batch_id);
 
-      const { data: batch } = await supabase.from("batches").select("start_date").eq("id", profile.batch_id).single();
+      const { data: batch } = await supabase
+        .from("batches")
+        .select("registration_closes_at")
+        .eq("id", profile.batch_id)
+        .single();
 
-      if (!batch?.start_date) {
+      if (!batch?.registration_closes_at) {
+        router.push("/waiting");
+        return;
+      }
+
+      const closesAt = new Date(batch.registration_closes_at).getTime();
+      if (Number.isNaN(closesAt) || Date.now() < closesAt) {
         router.push("/waiting");
         return;
       }
