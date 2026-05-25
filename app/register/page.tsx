@@ -310,12 +310,6 @@ export default function Register() {
       style={neutralTheme ? neutralThemeStyle : undefined}
     >
       <div className="tm-shell max-w-[460px]">
-        <div className="mb-4 flex justify-end">
-          <p className="text-[1.35rem] font-extrabold tracking-[-0.05em] text-[var(--accent-deep)]">
-            {countdownLabel ?? "--"}
-          </p>
-        </div>
-
         <div>
         <div className="mb-3 pt-1">
           <h1 className="text-left text-[2.25rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
@@ -323,6 +317,17 @@ export default function Register() {
             <span className="block">think like</span>
             <span className="block">you exist.</span>
           </h1>
+          <div className="mt-3">
+            <p
+              className="text-left text-[1.75rem] leading-none tracking-[-0.06em] text-[var(--accent-deep)]"
+              style={{ fontFamily: 'Georgia, "Times New Roman", serif', fontWeight: 700 }}
+            >
+              {countdownLabel ?? "--"}
+            </p>
+            <p className="mt-1 text-left text-[11px] font-medium uppercase tracking-[0.22em] text-[var(--muted)]">
+              left to join
+            </p>
+          </div>
           <p className="mt-2 max-w-[20rem] text-left text-[13px] font-medium leading-5 text-[var(--muted)]">
             Join a matching experience built around mindset, behavior, and meaningful connection.
           </p>
