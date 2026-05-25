@@ -219,12 +219,6 @@ export default function Daily() {
   return (
     <main className="flex min-h-screen justify-center bg-white px-6 pt-6">
       <div className="w-full max-w-[420px]">
-        <div className="flex items-center justify-end text-[13px] text-black">
-          <span>
-            {current + 1} of {questions.length}
-          </span>
-        </div>
-
         <QuestionCard
           question={currentQuestion.text}
           questionType={questionType}
@@ -238,6 +232,12 @@ export default function Daily() {
         {feedbackPercent !== null ? (
           <p className="mt-6 text-center text-[13px] text-black">{feedbackPercent}% of people chose this</p>
         ) : null}
+
+        <div className="mt-8 flex items-center justify-center text-[13px] text-black">
+          <span>
+            {current + 1} of {questions.length}
+          </span>
+        </div>
       </div>
     </main>
   );

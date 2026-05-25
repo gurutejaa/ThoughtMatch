@@ -66,6 +66,11 @@ export default function QuestionCard({
   const leftLabel = options[0] ?? "Low";
   const rightLabel = options[1] ?? "High";
   const shortTextMax = normalizedType === "fill_blank" ? 50 : 100;
+  const isRedBlueQuestion =
+    normalizedType === "binary" &&
+    options.length >= 2 &&
+    options[0].toLowerCase().includes("red pill") &&
+    options[1].toLowerCase().includes("blue pill");
 
   return (
     <section className="mt-12">
@@ -105,6 +110,8 @@ export default function QuestionCard({
         <div className="mt-12 grid grid-cols-2 gap-3">
           {options.slice(0, 2).map((option, index) => {
             const isSelected = choiceValue === index;
+            const isRedOption = isRedBlueQuestion && index === 0;
+            const isBlueOption = isRedBlueQuestion && index === 1;
 
             return (
               <button
@@ -115,8 +122,16 @@ export default function QuestionCard({
                 className={clsx(
                   "rounded-2xl border px-4 py-6 text-center text-[15px] font-normal transition",
                   isSelected
-                    ? "border-black bg-black text-white"
-                    : "border-[#e5e5e5] bg-white text-black hover:border-black hover:bg-black hover:text-white",
+                    ? isRedOption
+                      ? "border-red-600 bg-red-600 text-white"
+                      : isBlueOption
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-black bg-black text-white"
+                    : isRedOption
+                      ? "border-red-200 bg-white text-red-600 hover:border-red-600 hover:bg-red-600 hover:text-white"
+                      : isBlueOption
+                        ? "border-blue-200 bg-white text-black hover:border-blue-600 hover:bg-blue-600 hover:text-white"
+                        : "border-[#e5e5e5] bg-white text-black hover:border-black hover:bg-black hover:text-white",
                   disabled ? "cursor-default" : ""
                 )}
               >
