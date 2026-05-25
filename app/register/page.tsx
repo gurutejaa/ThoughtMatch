@@ -309,53 +309,36 @@ export default function Register() {
       className="flex min-h-screen justify-center px-4 py-4"
       style={neutralTheme ? neutralThemeStyle : undefined}
     >
-      <div className="tm-shell relative max-w-[420px]">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center overflow-hidden"
-        >
-          <span
-            className="select-none text-[5.8rem] font-semibold tracking-[-0.08em]"
-            style={{
-              color: "var(--foreground)",
-              opacity: 0.16,
-              transform: "rotate(-15deg)",
-              whiteSpace: "nowrap"
-            }}
-          >
-            ThoughtMatch
-          </span>
-        </div>
-
-        <div className="relative z-10 mb-2 flex justify-end">
-          <p className="text-[1.15rem] font-extrabold tracking-[-0.04em] text-[var(--accent-deep)]">
+      <div className="tm-shell max-w-[460px]">
+        <div className="mb-4 flex justify-end">
+          <p className="text-[1.35rem] font-extrabold tracking-[-0.05em] text-[var(--accent-deep)]">
             {countdownLabel ?? "--"}
           </p>
         </div>
 
-        <div className="relative z-10">
-        <div className="mb-2 pt-1">
-          <h1 className="text-left text-[2rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
+        <div>
+        <div className="mb-3 pt-1">
+          <h1 className="text-left text-[2.25rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
             <span className="block">People who</span>
             <span className="block">think like</span>
             <span className="block">you exist.</span>
           </h1>
-          <p className="mt-2 max-w-[18rem] text-left text-[12px] font-medium leading-4 text-[var(--muted)]">
+          <p className="mt-2 max-w-[20rem] text-left text-[13px] font-medium leading-5 text-[var(--muted)]">
             Join a matching experience built around mindset, behavior, and meaningful connection.
           </p>
         </div>
 
-        <section className="space-y-1.5">
-          <div className="grid grid-cols-2 gap-2">
+        <section className="space-y-2">
+          <div className="grid grid-cols-2 gap-2.5">
             <input
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               placeholder="Full name"
               value={form.name}
               onChange={(event) => handleFieldChange("name", event.target.value)}
             />
             <select
-              className="w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none"
+              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               value={form.gender}
               onChange={(event) => handleFieldChange("gender", event.target.value)}
@@ -369,7 +352,7 @@ export default function Register() {
           {error.field === "gender" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
 
           <input
-            className="w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+            className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
             style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
             placeholder="Email address"
             type="email"
@@ -379,7 +362,7 @@ export default function Register() {
           {error.field === "email" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
 
           <input
-            className="w-full rounded-xl px-3.5 py-2.5 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+            className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
             style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
             placeholder="(555) 000-0000"
             type="tel"
@@ -388,9 +371,9 @@ export default function Register() {
           />
           {error.field === "phone" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2.5">
             <select
-              className="w-full rounded-xl px-2.5 py-2.5 text-sm text-[var(--foreground)] outline-none"
+              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               value={form.dob_month}
               onChange={(event) => handleFieldChange("dob_month", event.target.value)}
@@ -403,7 +386,7 @@ export default function Register() {
               ))}
             </select>
             <select
-              className="w-full rounded-xl px-2.5 py-2.5 text-sm text-[var(--foreground)] outline-none"
+              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               value={form.dob_day}
               onChange={(event) => handleFieldChange("dob_day", event.target.value)}
@@ -416,7 +399,7 @@ export default function Register() {
               ))}
             </select>
             <select
-              className="w-full rounded-xl px-2.5 py-2.5 text-sm text-[var(--foreground)] outline-none"
+              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
               style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
               value={form.dob_year}
               onChange={(event) => handleFieldChange("dob_year", event.target.value)}
@@ -438,7 +421,7 @@ export default function Register() {
             type="button"
             onClick={handleSubmit}
             disabled={loading || registrationUnavailable}
-            className="mt-1 w-full rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-2 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
           >
             {loading ? "Sending code..." : registrationUnavailable ? "Registration closed" : "Continue"}
