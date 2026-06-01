@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { loginAdmin, runMatching } from "@/app/admin/actions";
+import { doReveal, loginAdmin, runMatching } from "@/app/admin/actions";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const ADMIN_COOKIE = "thoughtmatch-admin";
@@ -23,6 +23,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   const searchParams = props.searchParams ? await props.searchParams : {};
   const error = readParam(searchParams.error);
   const matched = readParam(searchParams.matched);
+  const revealed = readParam(searchParams.revealed);
 
   if (!isAuthed) {
     return (
@@ -57,7 +58,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   const supabase = getSupabaseAdmin();
   const { data: activeBatch } = await supabase
     .from("batches")
-    .select("id, registration_closes_at, status")
+    .select("id, registration_closes_at, question_closes_at, reveal_ready, status")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -148,6 +149,12 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
           </div>
         ) : null}
 
+        {revealed === "true" ? (
+          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+            Reveal is now live for this batch.
+          </div>
+        ) : null}
+
         {!activeBatch?.id ? (
           <section className="rounded-[2rem] border border-black/10 bg-white p-6">
             <p className="text-lg font-medium">No active batch found.</p>
@@ -170,23 +177,58 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
               </div>
             </section>
 
+            <section className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="rounded-[2rem] border border-black/10 bg-white p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45">Registration closes</p>
+                <p className="mt-3 text-sm font-medium">
+                  {activeBatch.registration_closes_at
+                    ? new Date(activeBatch.registration_closes_at).toLocaleString()
+                    : "Not set"}
+                </p>
+              </div>
+              <div className="rounded-[2rem] border border-black/10 bg-white p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45">Question window closes</p>
+                <p className="mt-3 text-sm font-medium">
+                  {activeBatch.question_closes_at
+                    ? new Date(activeBatch.question_closes_at).toLocaleString()
+                    : "Not set"}
+                </p>
+              </div>
+              <div className="rounded-[2rem] border border-black/10 bg-white p-5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45">Reveal status</p>
+                <p className="mt-3 text-sm font-medium">{activeBatch.reveal_ready ? "Live" : "Hidden"}</p>
+              </div>
+            </section>
+
             <section className="mt-6 rounded-[2rem] border border-black/10 bg-white p-5">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-lg font-medium">Matching Control</p>
                   <p className="mt-2 text-sm text-black/62">
-                    Use this when the active batch is ready to be paired.
+                    Questions open automatically after registration closes. Once the question window closes, you can run matching here and reveal only when you are ready.
                   </p>
                 </div>
 
-                <form action={runMatching}>
-                  <button
-                    type="submit"
-                    className="rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white"
-                  >
-                    Run Matching
-                  </button>
-                </form>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <form action={runMatching}>
+                    <button
+                      type="submit"
+                      className="rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white"
+                    >
+                      Run Matching
+                    </button>
+                  </form>
+
+                  <form action={doReveal}>
+                    <button
+                      type="submit"
+                      disabled={matches.length === 0}
+                      className="rounded-2xl border border-black px-5 py-3 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Do Reveal
+                    </button>
+                  </form>
+                </div>
               </div>
             </section>
 

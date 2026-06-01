@@ -7,9 +7,11 @@ import { supabase } from "@/lib/supabase";
 
 type WaitingState = {
   closesAt?: string | null;
+  questionClosesAt?: string | null;
   status?: string | null;
   name?: string | null;
   batchId?: string | null;
+  revealReady?: boolean | null;
 };
 
 export default function Waiting() {
@@ -34,7 +36,9 @@ export default function Waiting() {
         setState({
           name: "Preview User",
           status: "active",
-          closesAt: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString()
+          closesAt: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
+          questionClosesAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          revealReady: false
         });
         return;
       }
@@ -61,7 +65,7 @@ export default function Waiting() {
 
       const { data: batch } = await supabase
         .from("batches")
-        .select("registration_closes_at, status")
+        .select("registration_closes_at, question_closes_at, reveal_ready, status")
         .eq("id", profile.batch_id)
         .maybeSingle();
 
@@ -69,6 +73,8 @@ export default function Waiting() {
         name: profile.name,
         batchId: profile.batch_id,
         closesAt: batch?.registration_closes_at,
+        questionClosesAt: batch?.question_closes_at,
+        revealReady: batch?.reveal_ready,
         status: batch?.status
       });
     }
@@ -77,8 +83,14 @@ export default function Waiting() {
   }, [previewMode, router]);
 
   useEffect(() => {
+    if (!previewMode && state.revealReady) {
+      router.push("/reveal");
+    }
+  }, [previewMode, router, state.revealReady]);
+
+  useEffect(() => {
     if (previewMode) return;
-    if (!state.closesAt || !state.batchId || state.status !== "active") return;
+    if (!state.closesAt || !state.batchId || state.status !== "active" || state.revealReady) return;
 
     const closesAt = new Date(state.closesAt).getTime();
     if (Number.isNaN(closesAt) || now < closesAt) return;
@@ -132,9 +144,17 @@ export default function Waiting() {
             <p className="mt-3 text-sm text-white/68">
               Registration closes at: {state.closesAt ? new Date(state.closesAt).toLocaleString() : "Waiting for schedule"}
             </p>
+            <p className="mt-2 text-sm text-white/68">
+              Question window closes at: {state.questionClosesAt ? new Date(state.questionClosesAt).toLocaleString() : "Waiting for schedule"}
+            </p>
             {state.closesAt && new Date(state.closesAt).getTime() > now ? (
               <p className="mt-2 text-xs text-white/58">
                 Questions open automatically when this timer ends.
+              </p>
+            ) : null}
+            {state.closesAt && new Date(state.closesAt).getTime() <= now && !state.revealReady ? (
+              <p className="mt-2 text-xs text-white/58">
+                Once everyone finishes, the admin will run matching and reveal the results.
               </p>
             ) : null}
           </div>

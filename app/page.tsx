@@ -38,7 +38,7 @@ export default function Home() {
 
       const { data: batch } = await supabase
         .from("batches")
-        .select("status, registration_closes_at")
+        .select("status, registration_closes_at, reveal_ready")
         .eq("id", profile.batch_id)
         .maybeSingle();
 
@@ -47,7 +47,7 @@ export default function Home() {
         return;
       }
 
-      if (batch.status === "complete") {
+      if (batch.reveal_ready) {
         router.push("/reveal");
         return;
       }

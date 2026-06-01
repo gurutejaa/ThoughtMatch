@@ -104,7 +104,7 @@ export default function Daily() {
 
       const { data: batch } = await supabase
         .from("batches")
-        .select("registration_closes_at")
+        .select("registration_closes_at, question_closes_at")
         .eq("id", profile.batch_id)
         .single();
 
@@ -116,6 +116,12 @@ export default function Daily() {
       const closesAt = new Date(batch.registration_closes_at).getTime();
       if (Number.isNaN(closesAt) || Date.now() < closesAt) {
         router.push("/waiting");
+        return;
+      }
+
+      const questionClosesAt = batch.question_closes_at ? new Date(batch.question_closes_at).getTime() : null;
+      if (questionClosesAt && !Number.isNaN(questionClosesAt) && Date.now() >= questionClosesAt) {
+        router.push("/waiting?message=The%20question%20window%20has%20closed.");
         return;
       }
 

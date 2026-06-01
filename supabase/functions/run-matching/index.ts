@@ -109,9 +109,14 @@ Deno.serve(async (req) => {
     })
   }
 
-  await supabase.from('matches').insert(inserts)
+  await supabase.from('matches').delete().eq('batch_id', batch_id)
+
+  if (inserts.length > 0) {
+    await supabase.from('matches').insert(inserts)
+  }
+
   await supabase.from('batches')
-    .update({ status: 'complete' }).eq('id', batch_id)
+    .update({ reveal_ready: false }).eq('id', batch_id)
 
   return new Response(JSON.stringify({ matched: inserts.length }), { status: 200 })
 })

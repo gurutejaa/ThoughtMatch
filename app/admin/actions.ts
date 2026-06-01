@@ -75,3 +75,36 @@ export async function runMatching() {
 
   redirect(`/admin?matched=${result?.matched ?? 0}`);
 }
+
+export async function doReveal() {
+  const cookieStore = await cookies();
+  const isAuthed = cookieStore.get(ADMIN_COOKIE)?.value === "1";
+
+  if (!isAuthed) {
+    redirect("/admin?error=invalid-password");
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: batch } = await supabase
+    .from("batches")
+    .select("id")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!batch?.id) {
+    redirect("/admin?error=no-active-batch");
+  }
+
+  const { error } = await supabase
+    .from("batches")
+    .update({ reveal_ready: true })
+    .eq("id", batch.id);
+
+  if (error) {
+    redirect(`/admin?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect("/admin?revealed=true");
+}

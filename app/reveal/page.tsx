@@ -65,6 +65,17 @@ export default function Reveal() {
         return;
       }
 
+      const { data: batch } = await supabase
+        .from("batches")
+        .select("reveal_ready")
+        .eq("id", profile.batch_id)
+        .maybeSingle();
+
+      if (!batch?.reveal_ready) {
+        router.push("/waiting?message=Your%20match%20has%20not%20been%20revealed%20yet.");
+        return;
+      }
+
       const { data: topMatch } = await supabase
         .from("matches")
         .select("*")
