@@ -129,6 +129,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState>({ field: "", message: "" });
   const [batchWindow, setBatchWindow] = useState<BatchWindow>({ closesAt: null, status: null });
+  const [batchWindowLoaded, setBatchWindowLoaded] = useState(previewMode);
   const [now, setNow] = useState(() => Date.now());
   const [timerColor, setTimerColor] = useState(() => getReadableRandomColor());
 
@@ -137,7 +138,7 @@ export default function Register() {
   const neutralTheme = !form.gender;
   const closesAtMs = batchWindow.closesAt ? new Date(batchWindow.closesAt).getTime() : null;
   const countdownExpired = closesAtMs !== null && closesAtMs <= now;
-  const registrationUnavailable = !previewMode && (!batchWindow.closesAt || countdownExpired);
+  const registrationUnavailable = !previewMode && batchWindowLoaded && (!batchWindow.closesAt || countdownExpired);
   const countdownLabel = closesAtMs !== null ? formatCountdown(closesAtMs - now) : null;
   const countdownParts = closesAtMs !== null ? getCountdownParts(closesAtMs - now) : null;
 
@@ -155,6 +156,7 @@ export default function Register() {
     if (previewMode) {
       const closesAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
       setBatchWindow({ closesAt, status: "active" });
+      setBatchWindowLoaded(true);
       return;
     }
 
@@ -171,6 +173,7 @@ export default function Register() {
         closesAt: batch?.registration_closes_at ?? null,
         status: batch?.status ?? null
       });
+      setBatchWindowLoaded(true);
     }
 
     void loadBatchWindow();
@@ -221,7 +224,17 @@ export default function Register() {
     return null;
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    if (!batchWindowLoaded && !previewMode) {
+      setError({
+        field: "submit",
+        message: "Checking the current registration window. Please try again in a moment."
+      });
+      return;
+    }
+
     if (registrationUnavailable) {
       setError({
         field: "submit",
@@ -342,7 +355,7 @@ export default function Register() {
           </p>
         </div>
 
-        <section className="space-y-2">
+        <form className="space-y-2" onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-2.5">
             <input
               className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
@@ -430,17 +443,25 @@ export default function Register() {
           {zodiac ? <p className="px-1 text-[12px] text-[var(--muted)]">Your zodiac sign: {zodiac}</p> : null}
 
           {error.field === "submit" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+          {!previewMode && !batchWindowLoaded ? (
+            <p className="px-1 text-sm text-[var(--muted)]">Checking if registration is open...</p>
+          ) : null}
 
           <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={loading || registrationUnavailable}
+            type="submit"
+            disabled={loading || !batchWindowLoaded || registrationUnavailable}
             className="mt-2 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
             style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
           >
-            {loading ? "Sending code..." : registrationUnavailable ? "Registration closed" : "Continue"}
+            {loading
+              ? "Sending code..."
+              : !batchWindowLoaded && !previewMode
+                ? "Checking registration..."
+                : registrationUnavailable
+                  ? "Registration closed"
+                  : "Continue"}
           </button>
-        </section>
+        </form>
         </div>
       </div>
     </main>
