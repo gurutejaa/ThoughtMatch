@@ -161,18 +161,21 @@ export default function Register() {
     }
 
     async function loadBatchWindow() {
-      const { data: batch } = await supabase
-        .from("batches")
-        .select("registration_closes_at, status")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      try {
+        const response = await fetch("/api/active-batch", { cache: "no-store" });
+        const payload = (await response.json()) as { closesAt?: string | null; status?: string | null };
 
-      setBatchWindow({
-        closesAt: batch?.registration_closes_at ?? null,
-        status: batch?.status ?? null
-      });
+        setBatchWindow({
+          closesAt: payload?.closesAt ?? null,
+          status: payload?.status ?? null
+        });
+      } catch {
+        setBatchWindow({
+          closesAt: null,
+          status: null
+        });
+      }
+
       setBatchWindowLoaded(true);
     }
 
