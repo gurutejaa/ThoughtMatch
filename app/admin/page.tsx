@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { doReveal, loginAdmin, runMatching } from "@/app/admin/actions";
+import { closeRegistrationNow, doReveal, loginAdmin, openRegistrationNow, runMatching, setQuestionWindow } from "@/app/admin/actions";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const ADMIN_COOKIE = "thoughtmatch-admin";
@@ -24,6 +24,9 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   const error = readParam(searchParams.error);
   const matched = readParam(searchParams.matched);
   const revealed = readParam(searchParams.revealed);
+  const registrationOpened = readParam(searchParams.registrationOpened);
+  const registrationClosed = readParam(searchParams.registrationClosed);
+  const questionsSet = readParam(searchParams.questionsSet);
 
   if (!isAuthed) {
     return (
@@ -149,6 +152,24 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
           </div>
         ) : null}
 
+        {registrationOpened ? (
+          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+            Registration is open now for {registrationOpened} minute{registrationOpened === "1" ? "" : "s"}.
+          </div>
+        ) : null}
+
+        {registrationClosed === "true" ? (
+          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+            Registration is now closed for this batch.
+          </div>
+        ) : null}
+
+        {questionsSet ? (
+          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+            Question window set for {questionsSet} minute{questionsSet === "1" ? "" : "s"} from now.
+          </div>
+        ) : null}
+
         {revealed === "true" ? (
           <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
             Reveal is now live for this batch.
@@ -197,6 +218,92 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
               <div className="rounded-[2rem] border border-black/10 bg-white p-5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45">Reveal status</p>
                 <p className="mt-3 text-sm font-medium">{activeBatch.reveal_ready ? "Live" : "Hidden"}</p>
+              </div>
+            </section>
+
+            <section className="mt-6 rounded-[2rem] border border-black/10 bg-white p-5">
+              <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p className="text-lg font-medium">Registration Control</p>
+                  <p className="mt-2 text-sm text-black/62">
+                    Open registration for any number of minutes you want, or close it immediately.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+                <form action={openRegistrationNow} className="rounded-[1.5rem] border border-black/10 p-4">
+                  <p className="text-sm font-medium text-black">Open registration now</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <label className="text-sm text-black/62">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                        Registration minutes
+                      </span>
+                      <input
+                        type="number"
+                        name="registration_minutes"
+                        min="1"
+                        defaultValue="30"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                      />
+                    </label>
+                    <label className="text-sm text-black/62">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                        Question window minutes
+                      </span>
+                      <input
+                        type="number"
+                        name="question_minutes"
+                        min="1"
+                        defaultValue="60"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="submit"
+                    className="mt-4 rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    Open Registration Now
+                  </button>
+                </form>
+
+                <div className="grid gap-4">
+                  <form action={setQuestionWindow} className="rounded-[1.5rem] border border-black/10 p-4">
+                    <p className="text-sm font-medium text-black">Set question window only</p>
+                    <label className="mt-4 block text-sm text-black/62">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                        Question minutes
+                      </span>
+                      <input
+                        type="number"
+                        name="question_minutes"
+                        min="1"
+                        defaultValue="60"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                      />
+                    </label>
+                    <button
+                      type="submit"
+                      className="mt-4 rounded-2xl border border-black px-5 py-3 text-sm font-semibold text-black"
+                    >
+                      Set Question Window
+                    </button>
+                  </form>
+
+                  <form action={closeRegistrationNow} className="rounded-[1.5rem] border border-black/10 p-4">
+                    <p className="text-sm font-medium text-black">Close registration now</p>
+                    <p className="mt-2 text-sm text-black/62">
+                      Use this when you want to stop new people from joining immediately.
+                    </p>
+                    <button
+                      type="submit"
+                      className="mt-4 rounded-2xl border border-black px-5 py-3 text-sm font-semibold text-black"
+                    >
+                      Close Registration Now
+                    </button>
+                  </form>
+                </div>
               </div>
             </section>
 

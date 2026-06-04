@@ -8,6 +8,30 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const ADMIN_COOKIE = "thoughtmatch-admin";
 
+async function requireAdminAndBatch() {
+  const cookieStore = await cookies();
+  const isAuthed = cookieStore.get(ADMIN_COOKIE)?.value === "1";
+
+  if (!isAuthed) {
+    redirect("/admin?error=invalid-password");
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data: batch } = await supabase
+    .from("batches")
+    .select("id")
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!batch?.id) {
+    redirect("/admin?error=no-active-batch");
+  }
+
+  return { supabase, batchId: batch.id };
+}
+
 export async function loginAdmin(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const expected = process.env.ADMIN_PASSWORD;
@@ -28,25 +52,7 @@ export async function loginAdmin(formData: FormData) {
 }
 
 export async function runMatching() {
-  const cookieStore = await cookies();
-  const isAuthed = cookieStore.get(ADMIN_COOKIE)?.value === "1";
-
-  if (!isAuthed) {
-    redirect("/admin?error=invalid-password");
-  }
-
-  const supabase = getSupabaseAdmin();
-  const { data: batch } = await supabase
-    .from("batches")
-    .select("id")
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!batch?.id) {
-    redirect("/admin?error=no-active-batch");
-  }
+  const { batchId } = await requireAdminAndBatch();
 
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -62,7 +68,7 @@ export async function runMatching() {
       Authorization: `Bearer ${serviceRoleKey}`,
       apikey: serviceRoleKey
     },
-    body: JSON.stringify({ batch_id: batch.id }),
+    body: JSON.stringify({ batch_id: batchId }),
     cache: "no-store"
   });
 
@@ -77,34 +83,90 @@ export async function runMatching() {
 }
 
 export async function doReveal() {
-  const cookieStore = await cookies();
-  const isAuthed = cookieStore.get(ADMIN_COOKIE)?.value === "1";
-
-  if (!isAuthed) {
-    redirect("/admin?error=invalid-password");
-  }
-
-  const supabase = getSupabaseAdmin();
-  const { data: batch } = await supabase
-    .from("batches")
-    .select("id")
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!batch?.id) {
-    redirect("/admin?error=no-active-batch");
-  }
+  const { supabase, batchId } = await requireAdminAndBatch();
 
   const { error } = await supabase
     .from("batches")
     .update({ reveal_ready: true })
-    .eq("id", batch.id);
+    .eq("id", batchId);
 
   if (error) {
     redirect(`/admin?error=${encodeURIComponent(error.message)}`);
   }
 
   redirect("/admin?revealed=true");
+}
+
+function parseMinutes(value: FormDataEntryValue | null, fallback: number) {
+  const raw = String(value ?? "").trim();
+  const parsed = Number(raw);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  return Math.min(Math.round(parsed), 24 * 60);
+}
+
+export async function openRegistrationNow(formData: FormData) {
+  const { supabase, batchId } = await requireAdminAndBatch();
+  const registrationMinutes = parseMinutes(formData.get("registration_minutes"), 30);
+  const questionMinutes = parseMinutes(formData.get("question_minutes"), 60);
+  const now = Date.now();
+  const registrationClosesAt = new Date(now + registrationMinutes * 60 * 1000).toISOString();
+  const questionClosesAt = new Date(now + questionMinutes * 60 * 1000).toISOString();
+
+  const { error } = await supabase
+    .from("batches")
+    .update({
+      status: "active",
+      registration_closes_at: registrationClosesAt,
+      question_closes_at: questionClosesAt,
+      reveal_ready: false
+    })
+    .eq("id", batchId);
+
+  if (error) {
+    redirect(`/admin?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/admin?registrationOpened=${registrationMinutes}&questionsSet=${questionMinutes}`);
+}
+
+export async function closeRegistrationNow() {
+  const { supabase, batchId } = await requireAdminAndBatch();
+
+  const { error } = await supabase
+    .from("batches")
+    .update({
+      registration_closes_at: new Date(Date.now() - 60 * 1000).toISOString(),
+      reveal_ready: false
+    })
+    .eq("id", batchId);
+
+  if (error) {
+    redirect(`/admin?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect("/admin?registrationClosed=true");
+}
+
+export async function setQuestionWindow(formData: FormData) {
+  const { supabase, batchId } = await requireAdminAndBatch();
+  const questionMinutes = parseMinutes(formData.get("question_minutes"), 60);
+  const questionClosesAt = new Date(Date.now() + questionMinutes * 60 * 1000).toISOString();
+
+  const { error } = await supabase
+    .from("batches")
+    .update({
+      question_closes_at: questionClosesAt,
+      reveal_ready: false
+    })
+    .eq("id", batchId);
+
+  if (error) {
+    redirect(`/admin?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/admin?questionsSet=${questionMinutes}`);
 }
