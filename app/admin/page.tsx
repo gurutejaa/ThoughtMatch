@@ -17,6 +17,24 @@ function readParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function formatTimeRemaining(target: string | null) {
+  if (!target) return null;
+
+  const diff = new Date(target).getTime() - Date.now();
+  if (Number.isNaN(diff) || diff <= 0) return "0m 00s";
+
+  const totalSeconds = Math.floor(diff / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  }
+
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
 export default async function AdminPage(props: { searchParams?: SearchParams }) {
   const cookieStore = await cookies();
   const isAuthed = cookieStore.get(ADMIN_COOKIE)?.value === "1";
@@ -70,6 +88,12 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   let totalRegistered = 0;
   let completedAllQuestions = 0;
   let matches: Array<{ id: string; userA: string; userB: string; score: number }> = [];
+  let liveState = {
+    label: "No active batch",
+    tone: "border-black/10 bg-black/[0.03] text-black",
+    countdown: null as string | null,
+    note: "Create or activate a batch to begin."
+  };
 
   if (activeBatch?.id) {
     const [{ count: registrationCount }, { count: questionCount }, { data: registrations }, { data: matchRows }] =
@@ -123,6 +147,44 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
       userB: userNames.get(match.user_b) ?? "Unknown",
       score: Math.round(match.total_score ?? 0)
     }));
+
+    const now = Date.now();
+    const registrationClosesAt = activeBatch.registration_closes_at
+      ? new Date(activeBatch.registration_closes_at).getTime()
+      : null;
+    const questionClosesAt = activeBatch.question_closes_at
+      ? new Date(activeBatch.question_closes_at).getTime()
+      : null;
+
+    if (activeBatch.reveal_ready) {
+      liveState = {
+        label: "Reveal Live",
+        tone: "border-black bg-black text-white",
+        countdown: null,
+        note: "Users can now open their reveal."
+      };
+    } else if (registrationClosesAt && now < registrationClosesAt) {
+      liveState = {
+        label: "Registration Live",
+        tone: "border-emerald-200 bg-emerald-50 text-emerald-700",
+        countdown: formatTimeRemaining(activeBatch.registration_closes_at),
+        note: "New users can still join this batch."
+      };
+    } else if (questionClosesAt && now < questionClosesAt) {
+      liveState = {
+        label: "Questions Live",
+        tone: "border-amber-200 bg-amber-50 text-amber-700",
+        countdown: formatTimeRemaining(activeBatch.question_closes_at),
+        note: "Registration is closed. Users should be answering questions now."
+      };
+    } else {
+      liveState = {
+        label: "Waiting For Matching",
+        tone: "border-red-200 bg-red-50 text-red-700",
+        countdown: null,
+        note: "Questions are closed. Run matching when you are ready."
+      };
+    }
   }
 
   return (
@@ -184,6 +246,14 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
         ) : (
           <>
             <section className="grid gap-4 md:grid-cols-3">
+              <div className={`rounded-[2rem] border p-5 ${liveState.tone}`}>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] opacity-70">Live status</p>
+                <p className="mt-3 text-2xl font-semibold tracking-[-0.05em]">{liveState.label}</p>
+                {liveState.countdown ? (
+                  <p className="mt-2 text-lg font-medium">{liveState.countdown}</p>
+                ) : null}
+                <p className="mt-3 text-sm opacity-80">{liveState.note}</p>
+              </div>
               <div className="rounded-[2rem] border border-black/10 bg-white p-5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-black/45">Active batch</p>
                 <p className="mt-3 text-lg font-medium">{activeBatch.id}</p>
