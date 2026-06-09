@@ -1,5 +1,5 @@
 import TraitBar from "@/components/TraitBar";
-import { buildInsights, CategoryScores, formatCategoryName, topCategories, weakestCategory } from "@/lib/matching";
+import { buildCategoryReasons, buildInsights, buildMatchSummary, CategoryScores, formatCategoryName, topCategories, weakestCategory } from "@/lib/matching";
 
 type MatchRevealProps = {
   score: number;
@@ -8,6 +8,9 @@ type MatchRevealProps = {
     instagram_handle?: string | null;
   } | null;
   categoryScores: CategoryScores;
+  summary?: string | null;
+  reasons?: string[];
+  sharedAnswerCount?: number | null;
   revealed: boolean;
   onReveal: () => void;
   onCopy: () => void;
@@ -17,22 +20,31 @@ export default function MatchReveal({
   score,
   matchUser,
   categoryScores,
+  summary,
+  reasons = [],
+  sharedAnswerCount,
   revealed,
   onReveal,
   onCopy
 }: MatchRevealProps) {
   const strongest = topCategories(categoryScores, 3);
   const weakest = weakestCategory(categoryScores);
-  const insights = buildInsights(categoryScores);
+  const insights = reasons.length > 0 ? reasons : [...buildCategoryReasons(categoryScores, 3), ...buildInsights(categoryScores)].slice(0, 3);
+  const summaryText = summary ?? buildMatchSummary(categoryScores, sharedAnswerCount ?? undefined);
 
   return (
     <div className="tm-shell space-y-5 px-6 py-12">
       <div className="text-center">
         <p className="tm-kicker text-sm text-[var(--muted)]">Your match</p>
         <div className="mt-3 text-7xl font-semibold tracking-[-0.06em] text-[var(--foreground)]">{score}%</div>
-        <p className="tm-whisper mt-3 text-xl text-[var(--accent-deep)]">This score shows how strongly your responses aligned.</p>
+        <p className="tm-whisper mt-3 text-xl text-[var(--accent-deep)]">This score reflects how strongly your answers aligned across the full match set.</p>
         <p className="mt-2 text-sm text-[var(--muted)]">You were selected for each other.</p>
       </div>
+
+      <section className="tm-panel rounded-[2rem] p-5">
+        <p className="tm-kicker text-xs text-[var(--muted)]">Summary</p>
+        <p className="mt-3 text-sm leading-6 text-[var(--foreground)]">{summaryText}</p>
+      </section>
 
       <section className="tm-panel rounded-[2rem] p-5">
         <div className="mb-4 flex flex-wrap gap-2">
@@ -106,6 +118,7 @@ export default function MatchReveal({
       <div className="flex flex-wrap justify-center gap-3 text-xs text-[var(--muted)]">
         <span>Phone verified</span>
         <span>Completed all questions</span>
+        {sharedAnswerCount ? <span>Compared across {sharedAnswerCount} shared answers</span> : null}
         <span>Based on 8 responses</span>
       </div>
     </div>

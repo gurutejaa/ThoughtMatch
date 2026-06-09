@@ -12,6 +12,9 @@ type MatchRecord = {
   user_b: string;
   total_score: number;
   category_scores: CategoryScores;
+  match_summary?: string | null;
+  match_reasons?: string[] | null;
+  shared_answer_count?: number | null;
 };
 
 export default function Reveal() {
@@ -31,6 +34,13 @@ export default function Reveal() {
           user_a: "preview-a",
           user_b: "preview-b",
           total_score: 88,
+          match_summary: "Your strongest alignment shows up in mindset and relationship outlook, with enough consistency across the rest of your answers to make the pairing feel intentional.",
+          match_reasons: [
+            "You tend to think through choices in a similar way, which creates a more natural mental rhythm.",
+            "You seem to want similar things from trust, closeness, and connection.",
+            "Your daily energy and way of moving through life line up more naturally than not."
+          ],
+          shared_answer_count: 8,
           category_scores: {
             mindset: 92,
             emotional: 86,
@@ -148,6 +158,9 @@ export default function Reveal() {
         score={animScore}
         matchUser={matchUser}
         categoryScores={match.category_scores ?? {}}
+        summary={match.match_summary ?? null}
+        reasons={match.match_reasons ?? []}
+        sharedAnswerCount={match.shared_answer_count ?? null}
         revealed={revealed}
         onReveal={() => setRevealed(true)}
         onCopy={() => navigator.clipboard.writeText(matchUser?.instagram_handle ?? "")}
