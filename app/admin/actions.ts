@@ -175,6 +175,24 @@ export async function setQuestionWindow(formData: FormData) {
   redirect(`/admin?questionsSet=${questionMinutes}`);
 }
 
+export async function closeQuestionsNow() {
+  const { supabase, batchId } = await requireAdminAndBatch();
+
+  const { error } = await supabase
+    .from("batches")
+    .update({
+      question_closes_at: new Date().toISOString(),
+      reveal_ready: false
+    })
+    .eq("id", batchId);
+
+  if (error) {
+    redirect(`/admin?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect("/admin?questionsClosed=true");
+}
+
 export async function createNewBatch(formData: FormData) {
   const supabase = await requireAdmin();
   const registrationMinutes = parseMinutes(formData.get("registration_minutes"), 30);
