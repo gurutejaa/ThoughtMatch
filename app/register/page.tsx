@@ -29,6 +29,8 @@ type BatchWindow = {
   status: string | null;
 };
 
+type RegisterStage = "email" | "new" | "returning";
+
 function getReadableRandomColor() {
   const channel = () => Math.floor(Math.random() * 156);
   const toHex = (value: number) => value.toString(16).padStart(2, "0");
@@ -109,23 +111,11 @@ function formatCountdown(msRemaining: number) {
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
-function getCountdownParts(msRemaining: number) {
-  const totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return {
-    hours: String(hours).padStart(2, "0"),
-    minutes: String(minutes).padStart(2, "0"),
-    seconds: String(seconds).padStart(2, "0")
-  };
-}
-
 export default function Register() {
   const router = useRouter();
   const previewMode = usePreviewMode();
   const [form, setForm] = useState<FormState>(initialForm);
+  const [stage, setStage] = useState<RegisterStage>(previewMode ? "new" : "email");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ErrorState>({ field: "", message: "" });
   const [batchWindow, setBatchWindow] = useState<BatchWindow>({ closesAt: null, status: null });
@@ -140,7 +130,12 @@ export default function Register() {
   const countdownExpired = closesAtMs !== null && closesAtMs <= now;
   const registrationUnavailable = !previewMode && batchWindowLoaded && (!batchWindow.closesAt || countdownExpired);
   const countdownLabel = closesAtMs !== null ? formatCountdown(closesAtMs - now) : null;
-  const countdownParts = closesAtMs !== null ? getCountdownParts(closesAtMs - now) : null;
+
+  useEffect(() => {
+    if (previewMode) {
+      setStage("new");
+    }
+  }, [previewMode]);
 
   useEffect(() => {
     if (!form.gender) {
@@ -197,13 +192,33 @@ export default function Register() {
     }
   }
 
-  function validateForm() {
-    if (!form.name.trim()) {
-      return { field: "name", message: "Please enter your full name" } as ErrorState;
+  function validateRegistrationWindow() {
+    if (!batchWindowLoaded && !previewMode) {
+      return {
+        field: "submit",
+        message: "Checking the current registration window. Please try again in a moment."
+      } as ErrorState;
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+    if (registrationUnavailable) {
+      return {
+        field: "submit",
+        message: countdownExpired
+          ? "Registration is closed for this batch."
+          : "There is no active registration window right now."
+      } as ErrorState;
+    }
+
+    return null;
+  }
+
+  function validateForm() {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim().toLowerCase())) {
       return { field: "email", message: "Enter a valid email address" } as ErrorState;
+    }
+
+    if (!form.name.trim()) {
+      return { field: "name", message: "Please enter your full name" } as ErrorState;
     }
 
     const phoneResult = parseUSPhone(form.phone);
@@ -227,24 +242,94 @@ export default function Register() {
     return null;
   }
 
-  async function handleSubmit(event?: React.FormEvent<HTMLFormElement>) {
+  async function sendOtp(email: string, regData?: Record<string, string>) {
+    const { error: signInError } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: window.location.origin + "/verify",
+        ...(regData ? { data: regData } : {})
+      }
+    });
+
+    return signInError;
+  }
+
+  async function handleEmailContinue(event?: React.FormEvent<HTMLFormElement>) {
     event?.preventDefault();
 
-    if (!batchWindowLoaded && !previewMode) {
-      setError({
-        field: "submit",
-        message: "Checking the current registration window. Please try again in a moment."
-      });
+    const batchError = validateRegistrationWindow();
+    if (batchError) {
+      setError(batchError);
       return;
     }
 
-    if (registrationUnavailable) {
-      setError({
-        field: "submit",
-        message: countdownExpired
-          ? "Registration is closed for this batch."
-          : "There is no active registration window right now."
+    const normalizedEmail = form.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      setError({ field: "email", message: "Enter a valid email address" });
+      return;
+    }
+
+    setLoading(true);
+    setError({ field: "", message: "" });
+
+    try {
+      const response = await fetch("/api/check-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: normalizedEmail })
       });
+
+      const payload = (await response.json()) as { exists?: boolean; error?: string };
+
+      if (!response.ok) {
+        setError({ field: "submit", message: payload.error ?? "Unable to check this email right now." });
+        setLoading(false);
+        return;
+      }
+
+      if (payload.exists) {
+        localStorage.setItem(
+          "reg_form",
+          JSON.stringify({
+            email: normalizedEmail,
+            returning_user: true
+          })
+        );
+
+        const signInError = await sendOtp(normalizedEmail);
+        if (signInError) {
+          setError({ field: "submit", message: signInError.message });
+          setLoading(false);
+          return;
+        }
+
+        setStage("returning");
+        setLoading(false);
+
+        window.setTimeout(() => {
+          router.push(withPreview("/verify", previewMode));
+        }, 900);
+        return;
+      }
+
+      setForm((current) => ({ ...current, email: normalizedEmail }));
+      setStage("new");
+      setLoading(false);
+    } catch {
+      setError({ field: "submit", message: "Unable to check this email right now." });
+      setLoading(false);
+    }
+  }
+
+  async function handleSubmit(event?: React.FormEvent<HTMLFormElement>) {
+    event?.preventDefault();
+
+    const batchError = validateRegistrationWindow();
+    if (batchError) {
+      setError(batchError);
       return;
     }
 
@@ -306,14 +391,7 @@ export default function Register() {
     persistThemeGender(regForm.gender);
     applyThemeGender(regForm.gender);
 
-    const { error: signInError } = await supabase.auth.signInWithOtp({
-      email: form.email.trim().toLowerCase(),
-      options: {
-        shouldCreateUser: true,
-        data: regForm,
-        emailRedirectTo: window.location.origin + "/verify"
-      }
-    });
+    const signInError = await sendOtp(form.email.trim().toLowerCase(), regForm);
 
     if (signInError) {
       setError({ field: "submit", message: signInError.message });
@@ -337,134 +415,185 @@ export default function Register() {
     >
       <div className="tm-shell max-w-[460px]">
         <div>
-        <div className="mb-3 pt-1">
-          <h1 className="text-left text-[2.25rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
-            <span className="block">People who</span>
-            <span className="block">think like</span>
-            <span className="block">you exist.</span>
-          </h1>
-          <p className="mt-2 max-w-[20rem] text-left text-[13px] font-medium leading-5 text-[var(--muted)]">
-            Join a matching experience built around mindset, behavior, and meaningful connection.
-          </p>
-          <p
-            className="mt-3 text-left text-[1.75rem] leading-none tracking-[-0.06em]"
-            style={{
-              fontFamily: '"Bodoni 72", "Didot", "Times New Roman", serif',
-              fontWeight: 700,
-              color: timerColor
-            }}
-          >
-            {countdownLabel ?? "--"}
-          </p>
-        </div>
-
-        <form className="space-y-2" onSubmit={handleSubmit}>
-          <div className="grid grid-cols-2 gap-2.5">
-            <input
-              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
-              style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-              placeholder="Full name"
-              value={form.name}
-              onChange={(event) => handleFieldChange("name", event.target.value)}
-            />
-            <select
-              className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none"
-              style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-              value={form.gender}
-              onChange={(event) => handleFieldChange("gender", event.target.value)}
+          <div className="mb-3 pt-1">
+            <h1 className="text-left text-[2.25rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
+              <span className="block">People who</span>
+              <span className="block">think like</span>
+              <span className="block">you exist.</span>
+            </h1>
+            <p className="mt-2 max-w-[20rem] text-left text-[13px] font-medium leading-5 text-[var(--muted)]">
+              Join a matching experience built around mindset, behavior, and meaningful connection.
+            </p>
+            <p
+              className="mt-3 text-left text-[1.75rem] leading-none tracking-[-0.06em]"
+              style={{
+                fontFamily: '"Bodoni 72", "Didot", "Times New Roman", serif',
+                fontWeight: 700,
+                color: timerColor
+              }}
             >
-              <option value="" disabled hidden>Gender</option>
-              <option>Men</option>
-              <option>Women</option>
-            </select>
+              {countdownLabel ?? "--"}
+            </p>
           </div>
-          {error.field === "name" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-          {error.field === "gender" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
 
-          <input
-            className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
-            style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-            placeholder="Email address"
-            type="email"
-            value={form.email}
-            onChange={(event) => handleFieldChange("email", event.target.value)}
-          />
-          {error.field === "email" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-
-          <input
-            className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
-            style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-            placeholder="(555) 000-0000"
-            type="tel"
-            value={form.phone}
-            onChange={(event) => handleFieldChange("phone", event.target.value)}
-          />
-          {error.field === "phone" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-
-          <div className="grid grid-cols-3 gap-2.5">
-            <select
-              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
-              style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-              value={form.dob_month}
-              onChange={(event) => handleFieldChange("dob_month", event.target.value)}
-            >
-              <option value="" disabled hidden>Month</option>
-              {monthNames.map((month, index) => (
-                <option key={month} value={String(index + 1)}>
-                  {month}
-                </option>
-              ))}
-            </select>
-            <select
-              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
-              style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-              value={form.dob_day}
-              onChange={(event) => handleFieldChange("dob_day", event.target.value)}
-            >
-              <option value="" disabled hidden>Day</option>
-              {days.map((day) => (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              ))}
-            </select>
-            <select
-              className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
-              style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-              value={form.dob_year}
-              onChange={(event) => handleFieldChange("dob_year", event.target.value)}
-            >
-              <option value="" disabled hidden>Year</option>
-              {years.map((year) => (
-                <option key={year} value={year}>
-                  {year}
-                </option>
-              ))}
-            </select>
-          </div>
-          {error.field === "dob" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-          {zodiac ? <p className="px-1 text-[12px] text-[var(--muted)]">Your zodiac sign: {zodiac}</p> : null}
-
-          {error.field === "submit" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-          {!previewMode && !batchWindowLoaded ? (
-            <p className="px-1 text-sm text-[var(--muted)]">Checking if registration is open...</p>
+          {stage === "email" ? (
+            <form className="space-y-2" onSubmit={handleEmailContinue}>
+              <input
+                className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+                style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                placeholder="Email address"
+                type="email"
+                value={form.email}
+                onChange={(event) => handleFieldChange("email", event.target.value)}
+              />
+              {error.field === "email" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {error.field === "submit" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {!previewMode && !batchWindowLoaded ? (
+                <p className="px-1 text-sm text-[var(--muted)]">Checking if registration is open...</p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={loading || !batchWindowLoaded || registrationUnavailable}
+                className="mt-2 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
+              >
+                {loading
+                  ? "Checking..."
+                  : !batchWindowLoaded && !previewMode
+                    ? "Checking registration..."
+                    : registrationUnavailable
+                      ? "Registration closed"
+                      : "Continue"}
+              </button>
+            </form>
           ) : null}
 
-          <button
-            type="submit"
-            disabled={loading || !batchWindowLoaded || registrationUnavailable}
-            className="mt-2 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-            style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
-          >
-            {loading
-              ? "Sending code..."
-              : !batchWindowLoaded && !previewMode
-                ? "Checking registration..."
-                : registrationUnavailable
-                  ? "Registration closed"
-                  : "Continue"}
-          </button>
-        </form>
+          {stage === "returning" ? (
+            <section
+              className="rounded-[1.5rem] border px-5 py-6"
+              style={{ borderColor: "var(--input-border)", backgroundColor: "var(--surface)" }}
+            >
+              <p className="text-xl font-semibold text-[var(--foreground)]">Welcome back.</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+                We sent a code to your email. Taking you to verification now.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push(withPreview("/verify", previewMode))}
+                className="mt-5 w-full rounded-xl px-4 py-3 text-sm font-medium transition"
+                style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
+              >
+                Enter code
+              </button>
+            </section>
+          ) : null}
+
+          {stage === "new" ? (
+            <form className="space-y-2" onSubmit={handleSubmit}>
+              <div className="grid grid-cols-2 gap-2.5">
+                <input
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                  placeholder="Full name"
+                  value={form.name}
+                  onChange={(event) => handleFieldChange("name", event.target.value)}
+                />
+                <select
+                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none"
+                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                  value={form.gender}
+                  onChange={(event) => handleFieldChange("gender", event.target.value)}
+                >
+                  <option value="" disabled hidden>Gender</option>
+                  <option>Men</option>
+                  <option>Women</option>
+                </select>
+              </div>
+              {error.field === "name" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {error.field === "gender" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+
+              <input
+                className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+                style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                placeholder="Email address"
+                type="email"
+                value={form.email}
+                onChange={(event) => handleFieldChange("email", event.target.value)}
+              />
+              {error.field === "email" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+
+              <input
+                className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
+                style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                placeholder="(555) 000-0000"
+                type="tel"
+                value={form.phone}
+                onChange={(event) => handleFieldChange("phone", event.target.value)}
+              />
+              {error.field === "phone" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <select
+                  className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
+                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                  value={form.dob_month}
+                  onChange={(event) => handleFieldChange("dob_month", event.target.value)}
+                >
+                  <option value="" disabled hidden>Month</option>
+                  {monthNames.map((month, index) => (
+                    <option key={month} value={String(index + 1)}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
+                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                  value={form.dob_day}
+                  onChange={(event) => handleFieldChange("dob_day", event.target.value)}
+                >
+                  <option value="" disabled hidden>Day</option>
+                  {days.map((day) => (
+                    <option key={day} value={day}>
+                      {day}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
+                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                  value={form.dob_year}
+                  onChange={(event) => handleFieldChange("dob_year", event.target.value)}
+                >
+                  <option value="" disabled hidden>Year</option>
+                  {years.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {error.field === "dob" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {zodiac ? <p className="px-1 text-[12px] text-[var(--muted)]">Your zodiac sign: {zodiac}</p> : null}
+
+              {error.field === "submit" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+
+              <button
+                type="submit"
+                disabled={loading || !batchWindowLoaded || registrationUnavailable}
+                className="mt-2 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
+              >
+                {loading
+                  ? "Sending code..."
+                  : !batchWindowLoaded && !previewMode
+                    ? "Checking registration..."
+                    : registrationUnavailable
+                      ? "Registration closed"
+                      : "Continue"}
+              </button>
+            </form>
+          ) : null}
         </div>
       </div>
     </main>

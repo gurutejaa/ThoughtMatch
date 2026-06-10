@@ -64,6 +64,74 @@ export default function Verify() {
   }, [resent]);
 
   async function completeRegistration(session: any) {
+    const { data: batch } = await supabase
+      .from("batches")
+      .select("id")
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
+
+    if (!batch) {
+      setError("No active batch right now. You will be notified when the next one opens.");
+      setLoading(false);
+      setMode("otp");
+      return;
+    }
+
+    const { data: existingProfile, error: existingProfileError } = await supabase
+      .from("users")
+      .select("id, email, normalized_phone")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    if (existingProfileError) {
+      setError(existingProfileError.message);
+      setLoading(false);
+      setMode("otp");
+      return;
+    }
+
+    if (existingProfile) {
+      const { error: updateProfileError } = await supabase
+        .from("users")
+        .update({
+          verified: true,
+          batch_id: batch.id
+        })
+        .eq("id", session.user.id);
+
+      if (updateProfileError) {
+        setError(updateProfileError.message);
+        setLoading(false);
+        setMode("otp");
+        return;
+      }
+
+      const { error: existingRegistrationError } = await supabase.from("batch_registrations").upsert(
+        {
+          user_id: session.user.id,
+          batch_id: batch.id,
+          email: existingProfile.email,
+          normalized_phone: existingProfile.normalized_phone
+        },
+        {
+          onConflict: "batch_id,user_id"
+        }
+      );
+
+      if (existingRegistrationError) {
+        setError(existingRegistrationError.message);
+        setLoading(false);
+        setMode("otp");
+        return;
+      }
+
+      localStorage.removeItem("reg_form");
+      const isPreview = new URLSearchParams(window.location.search).get("preview") === "true";
+      router.push("/waiting" + (isPreview ? "?preview=true" : ""));
+      return;
+    }
+
     let reg: any = null;
     const stored = localStorage.getItem("reg_form");
 
@@ -77,21 +145,7 @@ export default function Verify() {
     }
 
     if (!reg || !reg.name) {
-      setError("Registration data missing — please register again");
-      setLoading(false);
-      setMode("otp");
-      return;
-    }
-
-    const { data: batch } = await supabase
-      .from("batches")
-      .select("id")
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle();
-
-    if (!batch) {
-      setError("No active batch right now. You will be notified when the next one opens.");
+      setError("Registration data missing - please register again");
       setLoading(false);
       setMode("otp");
       return;
@@ -149,7 +203,7 @@ export default function Verify() {
     const reg = stored ? JSON.parse(stored) : null;
 
     if (!reg?.email) {
-      setError("Registration data missing — please register again");
+      setError("Registration data missing - please register again");
       return;
     }
 
@@ -197,7 +251,7 @@ export default function Verify() {
       data: { session }
     } = await supabase.auth.getSession();
     if (!session) {
-      setError("Session failed — please try again");
+      setError("Session failed - please try again");
       setLoading(false);
       return;
     }
