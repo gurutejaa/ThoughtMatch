@@ -179,12 +179,47 @@ export async function createNewBatch(formData: FormData) {
   const supabase = await requireAdmin();
   const registrationMinutes = parseMinutes(formData.get("registration_minutes"), 30);
   const questionMinutes = parseMinutes(formData.get("question_minutes"), 60);
-  const domainIdRaw = String(formData.get("domain_id") ?? "").trim();
-  const domainId = domainIdRaw || null;
+  const selectedDomainId = String(formData.get("domain_id") ?? "").trim() || null;
+  const customPartnerName = String(formData.get("custom_partner_name") ?? "").trim();
+  const customOfferTitle = String(formData.get("custom_offer_title") ?? "").trim();
+  const customOfferDescription = String(formData.get("custom_offer_description") ?? "").trim();
   const now = Date.now();
   const registrationClosesAt = new Date(now + registrationMinutes * 60 * 1000);
   const questionClosesAt = new Date(registrationClosesAt.getTime() + questionMinutes * 60 * 1000);
   const startDate = new Date(now).toISOString().slice(0, 10);
+  const hasCustomDomain =
+    customPartnerName.length > 0 ||
+    customOfferTitle.length > 0 ||
+    customOfferDescription.length > 0;
+  let domainId = selectedDomainId;
+
+  if (hasCustomDomain) {
+    const nameSource = customPartnerName || customOfferTitle || "Custom Partner";
+    const slugBase = nameSource
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "custom-domain";
+    const slug = `${slugBase}-${Date.now().toString().slice(-6)}`;
+
+    const { data: insertedDomain, error: domainError } = await supabase
+      .from("domains")
+      .insert({
+        name: nameSource,
+        slug,
+        partner_name: customPartnerName || nameSource,
+        offer_title: customOfferTitle || null,
+        offer_description: customOfferDescription || null
+      })
+      .select("id")
+      .single();
+
+    if (domainError || !insertedDomain?.id) {
+      redirect(`/admin?error=${encodeURIComponent(domainError?.message ?? "domain-create-failed")}`);
+    }
+
+    domainId = insertedDomain.id;
+  }
 
   const { error: completeError } = await supabase
     .from("batches")

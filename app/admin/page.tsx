@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import {
   closeRegistrationNow,
   createNewBatch,
@@ -342,9 +343,10 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                       </span>
                       <select
                         name="domain_id"
-                        defaultValue={(domains?.[0] as DomainRow | undefined)?.id ?? ""}
+                        defaultValue=""
                         className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
                       >
+                        <option value="">None</option>
                         {(domains as DomainRow[] | null)?.map((domain) => (
                           <option key={domain.id} value={domain.id}>
                             {domain.name} · {domain.partner_name}
@@ -353,6 +355,43 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                       </select>
                     </label>
                   </div>
+                  <details className="mt-4 rounded-[1.25rem] border border-black/10 bg-[#fcfcfb] p-4">
+                    <summary className="cursor-pointer text-sm font-medium text-black">Or add custom domain</summary>
+                    <div className="mt-4 space-y-3">
+                      <label className="block text-sm text-black/62">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                          Partner name
+                        </span>
+                        <input
+                          type="text"
+                          name="custom_partner_name"
+                          placeholder="Arun's Restaurant"
+                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                        />
+                      </label>
+                      <label className="block text-sm text-black/62">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                          Offer title
+                        </span>
+                        <input
+                          type="text"
+                          name="custom_offer_title"
+                          placeholder="20% off dinner"
+                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                        />
+                      </label>
+                      <label className="block text-sm text-black/62">
+                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                          Offer description
+                        </span>
+                        <textarea
+                          name="custom_offer_description"
+                          placeholder="Matched users get 20% off their first dinner together"
+                          className="min-h-[96px] w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                        />
+                      </label>
+                    </div>
+                  </details>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <label className="text-sm text-black/62">
                       <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
@@ -381,13 +420,12 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   </div>
                   {!domains || domains.length === 0 ? (
                     <p className="mt-3 text-xs text-black/45">
-                      No domains found yet. Add domains first before creating a partner batch.
+                      No saved domains yet. You can still create a batch by using the custom domain option above.
                     </p>
                   ) : null}
                   <button
                     type="submit"
-                    disabled={!domains || domains.length === 0}
-                    className="mt-4 w-full rounded-2xl bg-black px-5 py-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="mt-4 w-full rounded-2xl bg-black px-5 py-4 text-sm font-semibold text-white"
                   >
                     Create New Batch
                   </button>
