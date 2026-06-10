@@ -17,6 +17,12 @@ type MatchRecord = {
   shared_answer_count?: number | null;
 };
 
+type BatchOffer = {
+  partner_name?: string | null;
+  offer_title?: string | null;
+  offer_description?: string | null;
+};
+
 export default function Reveal() {
   const router = useRouter();
   const previewMode = usePreviewMode();
@@ -26,6 +32,7 @@ export default function Reveal() {
   const [score, setScore] = useState(0);
   const [animScore, setAnimScore] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
+  const [partnerOffer, setPartnerOffer] = useState<BatchOffer | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -53,6 +60,11 @@ export default function Reveal() {
           name: "Alex",
           instagram_handle: "alex.preview"
         });
+        setPartnerOffer({
+          partner_name: "Northside Cafe",
+          offer_title: "Matched Pair Coffee Date",
+          offer_description: "Bring your reveal and enjoy a free pastry with any two coffee orders."
+        });
         return;
       }
 
@@ -77,7 +89,7 @@ export default function Reveal() {
 
       const { data: batch } = await supabase
         .from("batches")
-        .select("reveal_ready")
+        .select("reveal_ready, domain:domains(partner_name, offer_title, offer_description)")
         .eq("id", profile.batch_id)
         .maybeSingle();
 
@@ -85,6 +97,8 @@ export default function Reveal() {
         router.push("/waiting?message=Your%20match%20has%20not%20been%20revealed%20yet.");
         return;
       }
+
+      setPartnerOffer((batch as { domain?: BatchOffer | null } | null)?.domain ?? null);
 
       const { data: topMatch } = await supabase
         .from("matches")
@@ -161,6 +175,7 @@ export default function Reveal() {
         summary={match.match_summary ?? null}
         reasons={match.match_reasons ?? []}
         sharedAnswerCount={match.shared_answer_count ?? null}
+        partnerOffer={partnerOffer}
         revealed={revealed}
         onReveal={() => setRevealed(true)}
         onCopy={() => navigator.clipboard.writeText(matchUser?.instagram_handle ?? "")}

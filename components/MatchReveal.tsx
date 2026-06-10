@@ -11,6 +11,11 @@ type MatchRevealProps = {
   summary?: string | null;
   reasons?: string[];
   sharedAnswerCount?: number | null;
+  partnerOffer?: {
+    partner_name?: string | null;
+    offer_title?: string | null;
+    offer_description?: string | null;
+  } | null;
   revealed: boolean;
   onReveal: () => void;
   onCopy: () => void;
@@ -23,6 +28,7 @@ export default function MatchReveal({
   summary,
   reasons = [],
   sharedAnswerCount,
+  partnerOffer,
   revealed,
   onReveal,
   onCopy
@@ -35,9 +41,16 @@ export default function MatchReveal({
   return (
     <div className="tm-shell space-y-5 px-6 py-12">
       <div className="text-center">
-        <p className="tm-kicker text-sm text-[var(--muted)]">Your match</p>
-        <div className="mt-3 text-7xl font-semibold tracking-[-0.06em] text-[var(--foreground)]">{score}%</div>
-        <p className="tm-whisper mt-3 text-xl text-[var(--accent-deep)]">This score reflects how strongly your answers aligned across the full match set.</p>
+        <p className="tm-kicker text-sm text-[var(--muted)]">You matched with</p>
+        <div className="mt-3 text-4xl font-semibold tracking-[-0.05em] text-[var(--foreground)] sm:text-5xl">
+          {matchUser?.name ?? "Pending reveal"}
+        </div>
+        <div className="mt-5 inline-flex items-center justify-center rounded-full border border-[var(--line)] bg-[var(--background-strong)] px-4 py-2">
+          <span className="text-sm font-medium text-[var(--foreground)]">{score}% compatibility</span>
+        </div>
+        <p className="tm-whisper mt-4 text-lg text-[var(--accent-deep)]">
+          This score reflects how strongly your answers aligned across the full match set.
+        </p>
         <p className="mt-2 text-sm text-[var(--muted)]">You were selected for each other.</p>
       </div>
 
@@ -85,9 +98,6 @@ export default function MatchReveal({
       </section>
 
       <section className="tm-panel rounded-[2rem] p-5">
-        <p className="tm-kicker text-xs text-[var(--muted)]">Match</p>
-        <p className="mt-2 text-lg font-medium text-[var(--foreground)]">{matchUser?.name ?? "Pending reveal"}</p>
-
         <div className="mt-5">
           <p className="tm-kicker text-xs text-[var(--muted)]">Instagram</p>
           <div className="mt-2 flex items-center justify-between gap-3 rounded-2xl border border-[var(--line)] bg-[var(--background-strong)] px-4 py-3">
@@ -114,6 +124,17 @@ export default function MatchReveal({
           </div>
         </div>
       </section>
+
+      {partnerOffer?.partner_name && partnerOffer.offer_title ? (
+        <section className="tm-panel rounded-[2rem] p-5">
+          <p className="tm-kicker text-xs text-[var(--muted)]">Partner offer</p>
+          <p className="mt-2 text-lg font-medium text-[var(--foreground)]">{partnerOffer.partner_name}</p>
+          <p className="mt-4 text-sm font-medium text-[var(--foreground)]">{partnerOffer.offer_title}</p>
+          {partnerOffer.offer_description ? (
+            <p className="mt-2 text-sm leading-6 text-[var(--muted)]">{partnerOffer.offer_description}</p>
+          ) : null}
+        </section>
+      ) : null}
 
       <div className="flex flex-wrap justify-center gap-3 text-xs text-[var(--muted)]">
         <span>Phone verified</span>

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import {
   closeRegistrationNow,
+  createNewBatch,
   doReveal,
   loginAdmin,
   openRegistrationNow,
@@ -18,6 +19,27 @@ type MatchRow = {
   user_a: string;
   user_b: string;
   total_score: number | null;
+};
+
+type DomainRow = {
+  id: string;
+  name: string;
+  slug: string;
+  partner_name: string;
+  offer_title: string | null;
+  offer_description: string | null;
+};
+
+type ActiveBatch = {
+  id: string;
+  registration_closes_at: string | null;
+  question_closes_at: string | null;
+  reveal_ready: boolean | null;
+  status: string | null;
+  domain?: {
+    name?: string | null;
+    partner_name?: string | null;
+  }[] | null;
 };
 
 type DashboardStage = "registration" | "questions" | "matching" | "reveal";
@@ -65,6 +87,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   const registrationOpened = readParam(searchParams.registrationOpened);
   const registrationClosed = readParam(searchParams.registrationClosed);
   const questionsSet = readParam(searchParams.questionsSet);
+  const batchCreated = readParam(searchParams.batchCreated);
 
   if (!isAuthed) {
     return (
@@ -97,9 +120,14 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   }
 
   const supabase = getSupabaseAdmin();
+  const { data: domains } = await supabase
+    .from("domains")
+    .select("id, name, slug, partner_name, offer_title, offer_description")
+    .order("name");
+
   const { data: activeBatch } = await supabase
     .from("batches")
-    .select("id, registration_closes_at, question_closes_at, reveal_ready, status")
+    .select("id, registration_closes_at, question_closes_at, reveal_ready, status, domain:domains(name, partner_name)")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -108,6 +136,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   let totalRegistered = 0;
   let completedAllQuestions = 0;
   let matches: Array<{ id: string; userA: string; userB: string; score: number }> = [];
+  const activeDomain = activeBatch?.domain?.[0] ?? null;
 
   let currentStage: DashboardStage = "matching";
   let statusLabel = "Waiting for Matching";
@@ -190,7 +219,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
       statusNote = "Registration is closed. Users should be answering questions right now.";
       statusCountdown = formatTimeRemaining(activeBatch.question_closes_at);
     } else {
-      currentStage = matches.length > 0 ? "matching" : "matching";
+      currentStage = "matching";
       statusLabel = matches.length > 0 ? "Waiting for Reveal" : "Waiting for Matching";
       statusNote =
         matches.length > 0
@@ -265,7 +294,9 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
 
         {registrationOpened ? (
           <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
-            Registration is open now for {registrationOpened} minute{registrationOpened === "1" ? "" : "s"}.
+            {batchCreated === "true"
+              ? `New batch created. Registration is open for ${registrationOpened} minute${registrationOpened === "1" ? "" : "s"}.`
+              : `Registration is open now for ${registrationOpened} minute${registrationOpened === "1" ? "" : "s"}.`}
           </div>
         ) : null}
 
@@ -295,6 +326,79 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
         ) : (
           <div className="space-y-8">
             <section className="rounded-[2rem] border border-black/10 bg-white p-8">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">Create New Batch</p>
+              <div className="mt-5 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                <div>
+                  <p className="text-lg font-medium">Start a fresh batch from here</p>
+                  <p className="mt-2 max-w-xl text-sm leading-6 text-black/62">
+                    This will mark any current active batch as complete, then create a new active batch with your chosen registration, question, and domain settings.
+                  </p>
+                </div>
+                <form action={createNewBatch} className="rounded-[1.5rem] border border-black/10 p-5">
+                  <div className="grid gap-3">
+                    <label className="text-sm text-black/62">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                        Domain
+                      </span>
+                      <select
+                        name="domain_id"
+                        defaultValue={(domains?.[0] as DomainRow | undefined)?.id ?? ""}
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                      >
+                        {(domains as DomainRow[] | null)?.map((domain) => (
+                          <option key={domain.id} value={domain.id}>
+                            {domain.name} · {domain.partner_name}
+                          </option>
+                        )) ?? []}
+                      </select>
+                    </label>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="text-sm text-black/62">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                        Registration minutes
+                      </span>
+                      <input
+                        type="number"
+                        name="registration_minutes"
+                        min="1"
+                        defaultValue="30"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                      />
+                    </label>
+                    <label className="text-sm text-black/62">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
+                        Question window minutes
+                      </span>
+                      <input
+                        type="number"
+                        name="question_minutes"
+                        min="1"
+                        defaultValue="60"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                      />
+                    </label>
+                  </div>
+                  {!domains || domains.length === 0 ? (
+                    <p className="mt-3 text-xs text-black/45">
+                      No domains found yet. Add domains first before creating a partner batch.
+                    </p>
+                  ) : null}
+                  <button
+                    type="submit"
+                    disabled={!domains || domains.length === 0}
+                    className="mt-4 w-full rounded-2xl bg-black px-5 py-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Create New Batch
+                  </button>
+                  <p className="mt-3 text-xs text-black/45">
+                    This closes the current active batch and starts a brand-new one immediately.
+                  </p>
+                </form>
+              </div>
+            </section>
+
+            <section className="rounded-[2rem] border border-black/10 bg-white p-8">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">Batch Status</p>
               <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -304,6 +408,14 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   <p className="mt-4 max-w-xl text-sm leading-6 text-black/62">{statusNote}</p>
                   <p className="mt-4 text-xs uppercase tracking-[0.18em] text-black/35">Batch ID</p>
                   <p className="mt-2 text-sm text-black/62">{activeBatch.id}</p>
+                  {activeDomain ? (
+                    <>
+                      <p className="mt-4 text-xs uppercase tracking-[0.18em] text-black/35">Domain</p>
+                      <p className="mt-2 text-sm text-black/62">
+                        {activeDomain.name} <span className="text-black/40">· {activeDomain.partner_name}</span>
+                      </p>
+                    </>
+                  ) : null}
                 </div>
 
                 <div className="min-w-[220px] rounded-[1.5rem] border border-black/10 bg-[#fcfcfb] px-5 py-4 text-right">

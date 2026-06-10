@@ -3,7 +3,6 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 type UserRecord = {
   id: string
   gender: string | null
-  interested_in: string | null
 }
 
 type AnswerRecord = {
@@ -161,7 +160,7 @@ Deno.serve(async (req) => {
 
   const { data: users } = await supabase
     .from('users')
-    .select('id, gender, interested_in')
+    .select('id, gender')
     .in('id', userIds)
     .eq('verified', true)
 
@@ -191,10 +190,10 @@ Deno.serve(async (req) => {
   for (let i = 0; i < (users as UserRecord[]).length; i++) {
     for (let j = i + 1; j < (users as UserRecord[]).length; j++) {
       const a = (users as UserRecord[])[i], b = (users as UserRecord[])[j]
-      const wantsMatch =
-        (a.interested_in === 'Everyone' || a.interested_in === b.gender) &&
-        (b.interested_in === 'Everyone' || b.interested_in === a.gender)
-      if (!wantsMatch) continue
+      const isOppositeGenderPair =
+        (a.gender === 'Men' && b.gender === 'Women') ||
+        (a.gender === 'Women' && b.gender === 'Men')
+      if (!isOppositeGenderPair) continue
 
       const aA = byUser[a.id] || {}, bA = byUser[b.id] || {}
       const shared = Object.keys(aA).filter(qid => bA[qid] !== undefined)
