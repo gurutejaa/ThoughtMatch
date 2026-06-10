@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import Link from "next/link";
 import {
   closeRegistrationNow,
   createNewBatch,
@@ -72,10 +71,16 @@ function formatDateTime(value: string | null | undefined) {
 }
 
 function statusTone(stage: DashboardStage) {
-  if (stage === "registration") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  if (stage === "questions") return "border-amber-200 bg-amber-50 text-amber-700";
-  if (stage === "reveal") return "border-black bg-black text-white";
-  return "border-red-200 bg-red-50 text-red-700";
+  if (stage === "registration") return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
+  if (stage === "questions") return "border-amber-500/30 bg-amber-500/10 text-amber-300";
+  if (stage === "reveal") return "border-white/25 bg-white text-black";
+  return "border-red-500/30 bg-red-500/10 text-red-300";
+}
+
+function timelineTone(active: boolean, complete: boolean) {
+  if (active) return "border-white bg-white text-black";
+  if (complete) return "border-white/20 bg-white/5 text-white";
+  return "border-[#222222] bg-[#0f0f0f] text-white";
 }
 
 export default async function AdminPage(props: { searchParams?: SearchParams }) {
@@ -92,26 +97,24 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
 
   if (!isAuthed) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-white px-6 py-10 text-black">
-        <form action={loginAdmin} className="w-full max-w-sm rounded-[2rem] border border-black/10 bg-white p-6">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-black/45">Admin</p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-[-0.05em]">ThoughtMatch Access</h1>
-          <p className="mt-3 text-sm leading-6 text-black/62">Enter the admin password to open the batch dashboard.</p>
+      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-6 py-10 text-white">
+        <form action={loginAdmin} className="w-full max-w-sm rounded-lg border border-[#222222] bg-[#0f0f0f] p-5">
+          <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/45">Admin</p>
+          <h1 className="mt-2 text-[1.9rem] font-semibold tracking-[-0.05em]">ThoughtMatch Access</h1>
+          <p className="mt-2 text-[0.85rem] leading-6 text-white/60">Enter the admin password to open the dashboard.</p>
 
           <input
             type="password"
             name="password"
             placeholder="Password"
-            className="mt-6 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none placeholder:text-black/35"
+            className="mt-5 w-full rounded-md border border-[#222222] bg-[#0a0a0a] px-3 py-2.5 text-[0.85rem] text-white outline-none placeholder:text-white/30"
           />
 
-          {error === "invalid-password" ? (
-            <p className="mt-3 text-sm text-red-600">Incorrect password.</p>
-          ) : null}
+          {error === "invalid-password" ? <p className="mt-2 text-[0.85rem] text-red-400">Incorrect password.</p> : null}
 
           <button
             type="submit"
-            className="mt-5 w-full rounded-2xl bg-black px-4 py-3 text-sm font-semibold text-white"
+            className="mt-4 w-full rounded-md border border-white bg-white px-3 py-2.5 text-[0.85rem] font-medium text-black"
           >
             Enter
           </button>
@@ -137,7 +140,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   let totalRegistered = 0;
   let completedAllQuestions = 0;
   let matches: Array<{ id: string; userA: string; userB: string; score: number }> = [];
-  const activeDomain = activeBatch?.domain?.[0] ?? null;
+  const activeDomain = (activeBatch as ActiveBatch | null)?.domain?.[0] ?? null;
 
   let currentStage: DashboardStage = "matching";
   let statusLabel = "Waiting for Matching";
@@ -180,9 +183,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
     }
 
     const typedMatches = (matchRows ?? []) as MatchRow[];
-    const matchUserIds = Array.from(
-      new Set(typedMatches.flatMap((match) => [match.user_a, match.user_b]).filter(Boolean))
-    );
+    const matchUserIds = Array.from(new Set(typedMatches.flatMap((match) => [match.user_a, match.user_b]).filter(Boolean)));
 
     let userNames = new Map<string, string>();
     if (matchUserIds.length > 0) {
@@ -198,12 +199,8 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
     }));
 
     const now = Date.now();
-    const registrationClosesAt = activeBatch.registration_closes_at
-      ? new Date(activeBatch.registration_closes_at).getTime()
-      : null;
-    const questionClosesAt = activeBatch.question_closes_at
-      ? new Date(activeBatch.question_closes_at).getTime()
-      : null;
+    const registrationClosesAt = activeBatch.registration_closes_at ? new Date(activeBatch.registration_closes_at).getTime() : null;
+    const questionClosesAt = activeBatch.question_closes_at ? new Date(activeBatch.question_closes_at).getTime() : null;
 
     if (activeBatch.reveal_ready) {
       currentStage = "reveal";
@@ -267,18 +264,18 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   ];
 
   return (
-    <main className="min-h-screen bg-[#fafaf8] px-6 py-10 text-black">
+    <main className="min-h-screen bg-[#0a0a0a] px-4 py-5 text-white">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-10">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-black/45">Admin</p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.05em]">ThoughtMatch Dashboard</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-black/62">
+        <div className="mb-6">
+          <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Admin</p>
+          <h1 className="mt-1 text-[2rem] font-semibold tracking-[-0.05em]">ThoughtMatch Dashboard</h1>
+          <p className="mt-2 max-w-2xl text-[0.85rem] leading-6 text-white/58">
             Control the active batch, monitor progress, run matching, and reveal results when you are ready.
           </p>
         </div>
 
         {error ? (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[0.85rem] text-red-300">
             {error === "no-active-batch"
               ? "There is no active batch right now."
               : error === "missing-env"
@@ -288,13 +285,13 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
         ) : null}
 
         {matched ? (
-          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+          <div className="mb-4 rounded-lg border border-white/10 bg-white px-3 py-2 text-[0.85rem] text-black">
             Matching ran successfully. Created {matched} matches.
           </div>
         ) : null}
 
         {registrationOpened ? (
-          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+          <div className="mb-4 rounded-lg border border-white/10 bg-white px-3 py-2 text-[0.85rem] text-black">
             {batchCreated === "true"
               ? `New batch created. Registration is open for ${registrationOpened} minute${registrationOpened === "1" ? "" : "s"}.`
               : `Registration is open now for ${registrationOpened} minute${registrationOpened === "1" ? "" : "s"}.`}
@@ -302,388 +299,300 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
         ) : null}
 
         {registrationClosed === "true" ? (
-          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+          <div className="mb-4 rounded-lg border border-white/10 bg-white px-3 py-2 text-[0.85rem] text-black">
             Registration is now closed for this batch.
           </div>
         ) : null}
 
         {questionsSet ? (
-          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+          <div className="mb-4 rounded-lg border border-white/10 bg-white px-3 py-2 text-[0.85rem] text-black">
             Question window set for {questionsSet} minute{questionsSet === "1" ? "" : "s"} from now.
           </div>
         ) : null}
 
         {revealed === "true" ? (
-          <div className="mb-6 rounded-2xl border border-black/10 bg-black px-4 py-3 text-sm text-white">
+          <div className="mb-4 rounded-lg border border-white/10 bg-white px-3 py-2 text-[0.85rem] text-black">
             Reveal is now live for this batch.
           </div>
         ) : null}
 
         {!activeBatch?.id ? (
-          <section className="rounded-[2rem] border border-black/10 bg-white p-8">
-            <p className="text-lg font-medium">No active batch found.</p>
-            <p className="mt-2 text-sm text-black/62">Create or activate a batch in Supabase, then refresh this page.</p>
+          <section className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+            <p className="text-[0.95rem] font-medium">No active batch found.</p>
+            <p className="mt-1 text-[0.85rem] text-white/58">Create or activate a batch in Supabase, then refresh this page.</p>
           </section>
         ) : (
-          <div className="space-y-8">
-            <section className="rounded-[2rem] border border-black/10 bg-white p-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">Create New Batch</p>
-              <div className="mt-5 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-5">
+            <section className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+              <div className="mb-3 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-lg font-medium">Start a fresh batch from here</p>
-                  <p className="mt-2 max-w-xl text-sm leading-6 text-black/62">
-                    This will mark any current active batch as complete, then create a new active batch with your chosen registration, question, and domain settings.
+                  <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Create New Batch</p>
+                  <p className="mt-1 text-[0.85rem] text-white/58">
+                    Close the current active batch and start a new one immediately.
                   </p>
                 </div>
-                <form action={createNewBatch} className="rounded-[1.5rem] border border-black/10 p-5">
-                  <div className="grid gap-3">
-                    <label className="text-sm text-black/62">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                        Domain
-                      </span>
-                      <select
-                        name="domain_id"
-                        defaultValue=""
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
-                      >
-                        <option value="">None</option>
-                        {(domains as DomainRow[] | null)?.map((domain) => (
-                          <option key={domain.id} value={domain.id}>
-                            {domain.name} · {domain.partner_name}
-                          </option>
-                        )) ?? []}
-                      </select>
-                    </label>
-                  </div>
-                  <details className="mt-4 rounded-[1.25rem] border border-black/10 bg-[#fcfcfb] p-4">
-                    <summary className="cursor-pointer text-sm font-medium text-black">Or add custom domain</summary>
-                    <div className="mt-4 space-y-3">
-                      <label className="block text-sm text-black/62">
-                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                          Partner name
-                        </span>
-                        <input
-                          type="text"
-                          name="custom_partner_name"
-                          placeholder="Arun's Restaurant"
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
-                        />
-                      </label>
-                      <label className="block text-sm text-black/62">
-                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                          Offer title
-                        </span>
-                        <input
-                          type="text"
-                          name="custom_offer_title"
-                          placeholder="20% off dinner"
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
-                        />
-                      </label>
-                      <label className="block text-sm text-black/62">
-                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                          Offer description
-                        </span>
-                        <textarea
-                          name="custom_offer_description"
-                          placeholder="Matched users get 20% off their first dinner together"
-                          className="min-h-[96px] w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
-                        />
-                      </label>
-                    </div>
-                  </details>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <label className="text-sm text-black/62">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                        Registration minutes
-                      </span>
-                      <input
-                        type="number"
-                        name="registration_minutes"
-                        min="1"
-                        defaultValue="30"
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
-                      />
-                    </label>
-                    <label className="text-sm text-black/62">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                        Question window minutes
-                      </span>
-                      <input
-                        type="number"
-                        name="question_minutes"
-                        min="1"
-                        defaultValue="60"
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
-                      />
-                    </label>
-                  </div>
-                  {!domains || domains.length === 0 ? (
-                    <p className="mt-3 text-xs text-black/45">
-                      No saved domains yet. You can still create a batch by using the custom domain option above.
-                    </p>
-                  ) : null}
-                  <button
-                    type="submit"
-                    className="mt-4 w-full rounded-2xl bg-black px-5 py-4 text-sm font-semibold text-white"
-                  >
-                    Create New Batch
-                  </button>
-                  <p className="mt-3 text-xs text-black/45">
-                    This closes the current active batch and starts a brand-new one immediately.
-                  </p>
-                </form>
               </div>
+              <form action={createNewBatch} className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
+                <div className="grid gap-2">
+                  <label className="text-[0.7rem] uppercase tracking-[0.18em] text-white/40">
+                    <span className="mb-1 block">Domain</span>
+                    <select
+                      name="domain_id"
+                      defaultValue={(domains?.[0] as DomainRow | undefined)?.id ?? ""}
+                      className="w-full rounded-md border border-[#222222] bg-[#0a0a0a] px-3 py-2 text-[0.85rem] text-white outline-none"
+                    >
+                      {(domains as DomainRow[] | null)?.map((domain) => (
+                        <option key={domain.id} value={domain.id}>
+                          {domain.name} · {domain.partner_name}
+                        </option>
+                      )) ?? []}
+                    </select>
+                  </label>
+                  {!domains || domains.length === 0 ? (
+                    <p className="text-[0.7rem] text-white/40">No domains found yet. Add domains first before creating a partner batch.</p>
+                  ) : null}
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  <label className="text-[0.7rem] uppercase tracking-[0.18em] text-white/40">
+                    <span className="mb-1 block">Registration</span>
+                    <input
+                      type="number"
+                      name="registration_minutes"
+                      min="1"
+                      defaultValue="30"
+                      className="w-full rounded-md border border-[#222222] bg-[#0a0a0a] px-3 py-2 text-[0.85rem] text-white outline-none"
+                    />
+                  </label>
+                  <label className="text-[0.7rem] uppercase tracking-[0.18em] text-white/40">
+                    <span className="mb-1 block">Questions</span>
+                    <input
+                      type="number"
+                      name="question_minutes"
+                      min="1"
+                      defaultValue="60"
+                      className="w-full rounded-md border border-[#222222] bg-[#0a0a0a] px-3 py-2 text-[0.85rem] text-white outline-none"
+                    />
+                  </label>
+                  <div className="flex items-end">
+                    <button
+                      type="submit"
+                      disabled={!domains || domains.length === 0}
+                      className="w-full rounded-md border border-white bg-white px-3 py-2 text-[0.85rem] font-medium text-black disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Create New Batch
+                    </button>
+                  </div>
+                </div>
+              </form>
             </section>
 
-            <section className="rounded-[2rem] border border-black/10 bg-white p-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">Batch Status</p>
-              <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <section className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className={`inline-flex rounded-full border px-4 py-2 text-sm font-semibold ${statusTone(currentStage)}`}>
-                    {statusLabel}
-                  </div>
-                  <p className="mt-4 max-w-xl text-sm leading-6 text-black/62">{statusNote}</p>
-                  <p className="mt-4 text-xs uppercase tracking-[0.18em] text-black/35">Batch ID</p>
-                  <p className="mt-2 text-sm text-black/62">{activeBatch.id}</p>
+                  <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Batch Status</p>
+                  <p className="mt-2 max-w-xl text-[0.85rem] leading-6 text-white/58">{statusNote}</p>
+                  <p className="mt-3 text-[0.7rem] uppercase tracking-[0.18em] text-white/35">Batch ID</p>
+                  <p className="mt-1 text-[0.85rem] text-white/70">{activeBatch.id}</p>
                   {activeDomain ? (
                     <>
-                      <p className="mt-4 text-xs uppercase tracking-[0.18em] text-black/35">Domain</p>
-                      <p className="mt-2 text-sm text-black/62">
-                        {activeDomain.name} <span className="text-black/40">· {activeDomain.partner_name}</span>
+                      <p className="mt-3 text-[0.7rem] uppercase tracking-[0.18em] text-white/35">Domain</p>
+                      <p className="mt-1 text-[0.85rem] text-white/70">
+                        {activeDomain.name} <span className="text-white/35">· {activeDomain.partner_name}</span>
                       </p>
                     </>
                   ) : null}
                 </div>
 
-                <div className="min-w-[220px] rounded-[1.5rem] border border-black/10 bg-[#fcfcfb] px-5 py-4 text-right">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-black/45">Current countdown</p>
-                  <p className="mt-3 text-4xl font-semibold tracking-[-0.06em]">
-                    {statusCountdown ?? "--"}
-                  </p>
+                <div className="text-right">
+                  <div className={`inline-flex rounded-full border px-3 py-1 text-[0.75rem] font-medium ${statusTone(currentStage)}`}>
+                    {statusLabel}
+                  </div>
+                  <p className="mt-3 text-[0.7rem] uppercase tracking-[0.18em] text-white/35">Current countdown</p>
+                  <p className="mt-1 text-[2rem] font-semibold tracking-[-0.06em]">{statusCountdown ?? "--"}</p>
                 </div>
               </div>
             </section>
 
             <section>
-              <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">Numbers</p>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-[2rem] border border-black/10 bg-white p-6">
-                  <p className="text-sm text-black/55">Registered</p>
-                  <p className="mt-3 text-5xl font-semibold tracking-[-0.06em]">{totalRegistered}</p>
+              <p className="mb-2 text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Numbers</p>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+                  <p className="text-[2rem] font-semibold leading-none tracking-[-0.05em]">{totalRegistered}</p>
+                  <p className="mt-2 text-[0.7rem] uppercase tracking-[0.18em] text-white/40">Registered</p>
                 </div>
-                <div className="rounded-[2rem] border border-black/10 bg-white p-6">
-                  <p className="text-sm text-black/55">Completed Questions</p>
-                  <p className="mt-3 text-5xl font-semibold tracking-[-0.06em]">{completedAllQuestions}</p>
+                <div className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+                  <p className="text-[2rem] font-semibold leading-none tracking-[-0.05em]">{completedAllQuestions}</p>
+                  <p className="mt-2 text-[0.7rem] uppercase tracking-[0.18em] text-white/40">Completed Questions</p>
                 </div>
-                <div className="rounded-[2rem] border border-black/10 bg-white p-6">
-                  <p className="text-sm text-black/55">Matches Created</p>
-                  <p className="mt-3 text-5xl font-semibold tracking-[-0.06em]">{matches.length}</p>
+                <div className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+                  <p className="text-[2rem] font-semibold leading-none tracking-[-0.05em]">{matches.length}</p>
+                  <p className="mt-2 text-[0.7rem] uppercase tracking-[0.18em] text-white/40">Matches Created</p>
                 </div>
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-black/10 bg-white p-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">Timeline</p>
-              <div className="mt-6 grid gap-4 lg:grid-cols-4">
+            <section className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+              <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Timeline</p>
+              <div className="mt-4 grid gap-2 lg:grid-cols-4">
                 {timelineSteps.map((step, index) => {
                   const active = step.active;
                   const complete = step.complete;
 
                   return (
-                    <div
-                      key={step.key}
-                      className={`rounded-[1.5rem] border p-5 ${
-                        active
-                          ? "border-black bg-black text-white"
-                          : complete
-                            ? "border-black/10 bg-[#f7f7f5] text-black"
-                            : "border-black/10 bg-white text-black"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${active ? "text-white/60" : "text-black/45"}`}>
-                          Step {index + 1}
-                        </p>
-                        <span className={`text-xs ${active ? "text-white/70" : "text-black/35"}`}>
-                          {active ? "Active" : complete ? "Done" : "Pending"}
-                        </span>
+                    <div key={step.key} className={`rounded-md border px-3 py-3 ${timelineTone(active, complete)}`}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <span className={`h-2 w-2 rounded-full ${active ? "bg-black" : complete ? "bg-white" : "bg-white/25"}`} />
+                        {index < timelineSteps.length - 1 ? <span className={`h-px flex-1 ${active ? "bg-black/30" : complete ? "bg-white/25" : "bg-[#222222]"}`} /> : null}
                       </div>
-                      <p className="mt-4 text-xl font-semibold tracking-[-0.04em]">{step.title}</p>
-                      <p className={`mt-3 text-sm leading-6 ${active ? "text-white/78" : "text-black/62"}`}>{step.time}</p>
+                      <p className={`text-[0.7rem] uppercase tracking-[0.18em] ${active ? "text-black/60" : "text-white/35"}`}>Step {index + 1}</p>
+                      <p className="mt-1 text-[0.95rem] font-medium">{step.title}</p>
+                      <p className={`mt-2 text-[0.8rem] leading-5 ${active ? "text-black/75" : "text-white/55"}`}>{step.time}</p>
                     </div>
                   );
                 })}
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-black/10 bg-white p-8">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">Controls</p>
+            <section className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+              <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Controls</p>
+              <div className="mt-4 grid gap-3 xl:grid-cols-[1.15fr_0.85fr]">
+                <div className="rounded-md border border-[#222222] bg-[#0a0a0a] p-4">
+                  <p className="text-[0.85rem] font-medium">Current action</p>
 
-              <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-                <div className="space-y-4">
-                  <div className="rounded-[1.5rem] border border-black/10 bg-[#fcfcfb] p-5">
-                    <p className="text-sm font-medium">Current action</p>
-                    {showCloseRegistration ? (
-                      <>
-                        <p className="mt-2 text-sm leading-6 text-black/62">
-                          Registration is open. Close it when you are ready to move everyone into questions.
-                        </p>
-                        <form action={closeRegistrationNow} className="mt-4">
-                          <button
-                            type="submit"
-                            className="w-full rounded-2xl bg-black px-5 py-4 text-sm font-semibold text-white"
-                          >
-                            Close Registration Now
-                          </button>
-                        </form>
-                        <p className="mt-3 text-xs text-black/45">This will immediately stop new people from joining this batch.</p>
-                      </>
-                    ) : null}
+                  {showCloseRegistration ? (
+                    <>
+                      <p className="mt-2 text-[0.85rem] leading-6 text-white/58">
+                        Registration is open. Close it when you are ready to move everyone into questions.
+                      </p>
+                      <form action={closeRegistrationNow} className="mt-3">
+                        <button type="submit" className="rounded-md border border-white bg-white px-3 py-2 text-[0.85rem] font-medium text-black">
+                          Close Registration Now
+                        </button>
+                      </form>
+                      <p className="mt-2 text-[0.7rem] text-white/38">This immediately stops new people from joining this batch.</p>
+                    </>
+                  ) : null}
 
-                    {showQuestionsLiveNote ? (
-                      <>
-                        <p className="mt-2 text-sm leading-6 text-black/62">
-                          Questions are live right now. No admin action is needed until the question window closes.
-                        </p>
-                        <div className="mt-4 rounded-2xl border border-black/10 px-4 py-4 text-sm text-black/72">
-                          Questions are live
-                        </div>
-                      </>
-                    ) : null}
+                  {showQuestionsLiveNote ? (
+                    <>
+                      <p className="mt-2 text-[0.85rem] leading-6 text-white/58">
+                        Questions are live right now. No admin action is needed until the question window closes.
+                      </p>
+                      <div className="mt-3 rounded-md border border-[#222222] px-3 py-2 text-[0.85rem] text-white/72">Questions are live</div>
+                    </>
+                  ) : null}
 
-                    {showRunMatching ? (
-                      <>
-                        <p className="mt-2 text-sm leading-6 text-black/62">
-                          The question window is closed. Run matching now to generate the batch pairs.
-                        </p>
-                        <form action={runMatching} className="mt-4">
-                          <button
-                            type="submit"
-                            className="w-full rounded-2xl bg-black px-5 py-4 text-sm font-semibold text-white"
-                          >
-                            Run Matching
-                          </button>
-                        </form>
-                        <p className="mt-3 text-xs text-black/45">Run this only when you are ready to lock in the current matching result.</p>
-                      </>
-                    ) : null}
+                  {showRunMatching ? (
+                    <>
+                      <p className="mt-2 text-[0.85rem] leading-6 text-white/58">
+                        The question window is closed. Run matching now to generate the batch pairs.
+                      </p>
+                      <form action={runMatching} className="mt-3">
+                        <button type="submit" className="rounded-md border border-white bg-white px-3 py-2 text-[0.85rem] font-medium text-black">
+                          Run Matching
+                        </button>
+                      </form>
+                      <p className="mt-2 text-[0.7rem] text-white/38">Run this only when you are ready to lock in the current matching result.</p>
+                    </>
+                  ) : null}
 
-                    {showDoReveal ? (
-                      <>
-                        <p className="mt-2 text-sm leading-6 text-black/62">
-                          Matches are ready. Review the table below, then reveal when you want users to see their result.
-                        </p>
-                        <form action={doReveal} className="mt-4">
-                          <button
-                            type="submit"
-                            className="w-full rounded-2xl bg-black px-5 py-4 text-sm font-semibold text-white"
-                          >
-                            Do Reveal
-                          </button>
-                        </form>
-                        <p className="mt-3 text-xs text-black/45">Once revealed, users in this batch will be able to open their match result.</p>
-                      </>
-                    ) : null}
+                  {showDoReveal ? (
+                    <>
+                      <p className="mt-2 text-[0.85rem] leading-6 text-white/58">
+                        Matches are ready. Review the table below, then reveal when you want users to see their result.
+                      </p>
+                      <form action={doReveal} className="mt-3">
+                        <button type="submit" className="rounded-md border border-white bg-white px-3 py-2 text-[0.85rem] font-medium text-black">
+                          Do Reveal
+                        </button>
+                      </form>
+                      <p className="mt-2 text-[0.7rem] text-white/38">Once revealed, users in this batch will be able to open their match result.</p>
+                    </>
+                  ) : null}
 
-                    {currentStage === "reveal" ? (
-                      <>
-                        <p className="mt-2 text-sm leading-6 text-black/62">
-                          Reveal is live now. Users should be able to access their match screen.
-                        </p>
-                        <div className="mt-4 rounded-2xl border border-black/10 px-4 py-4 text-sm text-black/72">
-                          Reveal is live
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
+                  {currentStage === "reveal" ? (
+                    <>
+                      <p className="mt-2 text-[0.85rem] leading-6 text-white/58">
+                        Reveal is live now. Users should be able to access their match screen.
+                      </p>
+                      <div className="mt-3 rounded-md border border-[#222222] px-3 py-2 text-[0.85rem] text-white/72">Reveal is live</div>
+                    </>
+                  ) : null}
                 </div>
 
-                <div className="space-y-4">
-                  <form action={openRegistrationNow} className="rounded-[1.5rem] border border-black/10 p-5">
-                    <p className="text-sm font-medium">Open Registration</p>
-                    <p className="mt-2 text-sm leading-6 text-black/62">
+                <div className="grid gap-3">
+                  <form action={openRegistrationNow} className="rounded-md border border-[#222222] bg-[#0a0a0a] p-4">
+                    <p className="text-[0.85rem] font-medium">Open Registration</p>
+                    <p className="mt-2 text-[0.85rem] leading-6 text-white/58">
                       Manual override. Use any minute value you want, like 2, 6, 7, 30, or 60.
                     </p>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <label className="text-sm text-black/62">
-                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                          Registration minutes
-                        </span>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <label className="text-[0.7rem] uppercase tracking-[0.18em] text-white/40">
+                        <span className="mb-1 block">Registration</span>
                         <input
                           type="number"
                           name="registration_minutes"
                           min="1"
                           defaultValue="30"
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                          className="w-full rounded-md border border-[#222222] bg-[#0f0f0f] px-3 py-2 text-[0.85rem] text-white outline-none"
                         />
                       </label>
-                      <label className="text-sm text-black/62">
-                        <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                          Question minutes
-                        </span>
+                      <label className="text-[0.7rem] uppercase tracking-[0.18em] text-white/40">
+                        <span className="mb-1 block">Questions</span>
                         <input
                           type="number"
                           name="question_minutes"
                           min="1"
                           defaultValue="60"
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                          className="w-full rounded-md border border-[#222222] bg-[#0f0f0f] px-3 py-2 text-[0.85rem] text-white outline-none"
                         />
                       </label>
                     </div>
-                    <button
-                      type="submit"
-                      className="mt-4 w-full rounded-2xl border border-black px-5 py-4 text-sm font-semibold text-black"
-                    >
+                    <button type="submit" className="mt-3 rounded-md border border-[#222222] px-3 py-2 text-[0.85rem] font-medium text-white">
                       Open Registration Now
                     </button>
-                    <p className="mt-3 text-xs text-black/45">This overrides the current registration timing for the active batch.</p>
+                    <p className="mt-2 text-[0.7rem] text-white/38">This overrides the current registration timing for the active batch.</p>
                   </form>
 
-                  <form action={setQuestionWindow} className="rounded-[1.5rem] border border-black/10 p-5">
-                    <p className="text-sm font-medium">Set Question Window</p>
-                    <p className="mt-2 text-sm leading-6 text-black/62">
+                  <form action={setQuestionWindow} className="rounded-md border border-[#222222] bg-[#0a0a0a] p-4">
+                    <p className="text-[0.85rem] font-medium">Set Question Window</p>
+                    <p className="mt-2 text-[0.85rem] leading-6 text-white/58">
                       Adjust only the question window without reopening registration.
                     </p>
-                    <label className="mt-4 block text-sm text-black/62">
-                      <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-black/45">
-                        Question minutes
-                      </span>
+                    <label className="mt-3 block text-[0.7rem] uppercase tracking-[0.18em] text-white/40">
+                      <span className="mb-1 block">Question minutes</span>
                       <input
                         type="number"
                         name="question_minutes"
                         min="1"
                         defaultValue="60"
-                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none"
+                        className="w-full rounded-md border border-[#222222] bg-[#0f0f0f] px-3 py-2 text-[0.85rem] text-white outline-none"
                       />
                     </label>
-                    <button
-                      type="submit"
-                      className="mt-4 w-full rounded-2xl border border-black px-5 py-4 text-sm font-semibold text-black"
-                    >
+                    <button type="submit" className="mt-3 rounded-md border border-[#222222] px-3 py-2 text-[0.85rem] font-medium text-white">
                       Set Question Window
                     </button>
-                    <p className="mt-3 text-xs text-black/45">Use this carefully if users are already inside the question flow.</p>
+                    <p className="mt-2 text-[0.7rem] text-white/38">Use this carefully if users are already inside the question flow.</p>
                   </form>
                 </div>
               </div>
             </section>
 
-            <section className="rounded-[2rem] border border-black/10 bg-white p-8">
-              <div className="mb-5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-black/45">Matches Table</p>
-                <p className="mt-3 text-sm leading-6 text-black/62">
+            <section className="rounded-lg border border-[#222222] bg-[#0f0f0f] p-4">
+              <div className="mb-3">
+                <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Matches Table</p>
+                <p className="mt-1 text-[0.85rem] leading-6 text-white/58">
                   Review the final pairs and compatibility scores after matching is run.
                 </p>
               </div>
 
               {!showMatchesTable ? (
-                <p className="text-sm text-black/55">No matches created yet.</p>
+                <p className="text-[0.85rem] text-white/55">No matches created yet.</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-sm">
+                  <table className="w-full border-collapse text-left text-[0.85rem]">
                     <thead>
-                      <tr className="border-b border-black/10 text-black/45">
+                      <tr className="border-b border-[#222222] text-white/40">
                         <th className="pb-3 font-medium">User A name</th>
                         <th className="pb-3 font-medium">User B name</th>
                         <th className="pb-3 text-right font-medium">Score</th>
@@ -691,10 +600,10 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                     </thead>
                     <tbody>
                       {matches.map((match) => (
-                        <tr key={match.id} className="border-b border-black/5 last:border-b-0">
-                          <td className="py-4">{match.userA}</td>
-                          <td className="py-4">{match.userB}</td>
-                          <td className="py-4 text-right font-medium">{match.score}%</td>
+                        <tr key={match.id} className="border-b border-[#222222] last:border-b-0">
+                          <td className="py-3">{match.userA}</td>
+                          <td className="py-3">{match.userB}</td>
+                          <td className="py-3 text-right font-medium">{match.score}%</td>
                         </tr>
                       ))}
                     </tbody>
