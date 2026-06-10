@@ -76,34 +76,30 @@ export default function Reveal() {
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("batch_id")
-        .eq("id", user.id)
+      const { data: activeBatch } = await supabase
+        .from("batches")
+        .select("id, reveal_ready, domain:domains(partner_name, offer_title, offer_description)")
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (!profile?.batch_id) {
+      if (!activeBatch?.id) {
         router.push("/waiting?message=Your%20match%20isn%27t%20ready%20yet.");
         return;
       }
 
-      const { data: batch } = await supabase
-        .from("batches")
-        .select("reveal_ready, domain:domains(partner_name, offer_title, offer_description)")
-        .eq("id", profile.batch_id)
-        .maybeSingle();
-
-      if (!batch?.reveal_ready) {
+      if (!activeBatch?.reveal_ready) {
         router.push("/waiting?message=Your%20match%20has%20not%20been%20revealed%20yet.");
         return;
       }
 
-      setPartnerOffer((batch as { domain?: BatchOffer | null } | null)?.domain ?? null);
+      setPartnerOffer((activeBatch as { domain?: BatchOffer | null } | null)?.domain ?? null);
 
       const { data: topMatch } = await supabase
         .from("matches")
         .select("*")
-        .eq("batch_id", profile.batch_id)
+        .eq("batch_id", activeBatch.id)
         .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
         .order("total_score", { ascending: false })
         .limit(1)
