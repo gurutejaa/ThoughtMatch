@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { getRouteForUser } from "@/lib/routing";
 import { usePreviewMode, withPreview } from "@/lib/preview";
 import { supabase } from "@/lib/supabase";
 
@@ -38,71 +39,17 @@ export default function Home() {
 
       const { data: activeBatch } = await supabase
         .from("batches")
-        .select("id, status, registration_closes_at, reveal_ready")
+        .select("id, status, registration_closes_at, question_closes_at, reveal_ready")
         .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (!activeBatch) {
-        router.push("/waiting");
-        return;
-      }
-
-      if (activeBatch.reveal_ready) {
-        const { data: match } = await supabase
-          .from("matches")
-          .select("id")
-          .eq("batch_id", activeBatch.id)
-          .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-          .limit(1)
-          .maybeSingle();
-
-        if (match?.id) {
-          router.push("/reveal");
-          return;
-        }
-
-        router.push("/waiting?nomatch=true&message=Your%20match%20is%20being%20prepared.");
-        return;
-      }
-
-      const { data: batch } = await supabase
-        .from("batches")
-        .select("status, registration_closes_at, reveal_ready")
-        .eq("id", activeBatch.id)
-        .maybeSingle();
-
-      if (!batch) {
-        router.push("/waiting");
-        return;
-      }
-
-      const closesAt = batch.registration_closes_at ? new Date(batch.registration_closes_at).getTime() : null;
-
-      if (!closesAt || Date.now() < closesAt) {
-        router.push("/waiting");
-        return;
-      }
-
-      const [{ count: totalQuestions }, { count: answeredQuestions }] = await Promise.all([
-        supabase.from("questions").select("*", { count: "exact", head: true }),
-        supabase
-          .from("answers")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("batch_id", activeBatch.id)
-      ]);
-
-      if ((answeredQuestions ?? 0) >= (totalQuestions ?? 0)) {
-        router.push("/waiting");
-        return;
-      }
-
-      router.push("/daily");
+      const route = await getRouteForUser(user.id, activeBatch);
+      router.push(`/${route === "register" ? "register" : route}`);
     }
 
-    routeUser();
+    void routeUser();
   }, [previewMode, router]);
 
   return (

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import MatchReveal from "@/components/MatchReveal";
 import { CategoryScores } from "@/lib/matching";
+import { getRouteForUser } from "@/lib/routing";
 import { usePreviewMode } from "@/lib/preview";
 import { supabase } from "@/lib/supabase";
 
@@ -24,7 +24,6 @@ type BatchOffer = {
 };
 
 export default function Reveal() {
-  const router = useRouter();
   const previewMode = usePreviewMode();
   const [match, setMatch] = useState<MatchRecord | null>(null);
   const [matchUser, setMatchUser] = useState<{ name?: string | null; instagram_handle?: string | null } | null>(null);
@@ -72,29 +71,34 @@ export default function Reveal() {
         data: { user }
       } = await supabase.auth.getUser();
       if (!user) {
-        router.push("/register");
+        setStatusMessage("Sign in to view your reveal.");
         return;
       }
 
       const { data: activeBatch } = await supabase
         .from("batches")
-        .select("id, reveal_ready, domain:domains(partner_name, offer_title, offer_description)")
+        .select("id, status, registration_closes_at, question_closes_at, reveal_ready, domain:domains(partner_name, offer_title, offer_description)")
         .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (!activeBatch?.id) {
-        router.push("/waiting?message=Your%20match%20isn%27t%20ready%20yet.");
+        setStatusMessage("There is no active batch right now.");
         return;
       }
-
-      if (!activeBatch?.reveal_ready) {
-        router.push("/waiting?message=Your%20match%20has%20not%20been%20revealed%20yet.");
-        return;
-      }
-
       setPartnerOffer((activeBatch as { domain?: BatchOffer | null } | null)?.domain ?? null);
+
+      const route = await getRouteForUser(user.id, activeBatch);
+
+      if (route !== "reveal") {
+        if (activeBatch.reveal_ready) {
+          setStatusMessage("You were not matched this round.");
+        } else {
+          setStatusMessage("Results are being prepared.");
+        }
+        return;
+      }
 
       const { data: topMatch } = await supabase
         .from("matches")
@@ -106,7 +110,7 @@ export default function Reveal() {
         .maybeSingle();
 
       if (!topMatch) {
-        router.push("/waiting?nomatch=true&message=Your%20match%20is%20being%20prepared.");
+        setStatusMessage("You were not matched this round.");
         return;
       }
 
@@ -122,16 +126,15 @@ export default function Reveal() {
         .maybeSingle();
 
       if (otherError) {
-        setStatusMessage("Your match isn't ready yet.");
-        router.push("/waiting?nomatch=true&message=Your%20match%20is%20being%20prepared.");
+        setStatusMessage("We found your match, but the reveal details are still loading.");
         return;
       }
 
       setMatchUser(other);
     }
 
-    load();
-  }, [previewMode, router]);
+    void load();
+  }, [previewMode]);
 
   useEffect(() => {
     if (score === 0) return;

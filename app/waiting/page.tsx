@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { usePreviewMode } from "@/lib/preview";
+import { getRouteForUser } from "@/lib/routing";
 import { supabase } from "@/lib/supabase";
 
 type WaitingState = {
@@ -25,19 +25,11 @@ type BatchStatusResponse = {
 };
 
 export default function Waiting() {
-  const router = useRouter();
   const previewMode = usePreviewMode();
   const [state, setState] = useState<WaitingState>({});
   const [message, setMessage] = useState<string | null>(null);
-  const [noMatchYet, setNoMatchYet] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setMessage(params.get("message"));
-    setNoMatchYet(params.get("nomatch") === "true");
-  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -66,15 +58,12 @@ export default function Waiting() {
         } = await supabase.auth.getUser();
 
         if (!user) {
-          router.push("/register");
+          setState({});
+          setMessage("Open registration to join the current batch.");
           return;
         }
 
-        const { data: profile } = await supabase
-          .from("users")
-          .select("name, batch_id")
-          .eq("id", user.id)
-          .maybeSingle();
+        const { data: profile } = await supabase.from("users").select("name").eq("id", user.id).maybeSingle();
 
         const response = await fetch("/api/batch-status", { cache: "no-store" });
         const batchPayload = (await response.json()) as BatchStatusResponse;
@@ -82,6 +71,7 @@ export default function Waiting() {
 
         if (!currentBatchId) {
           setState({ name: profile?.name });
+          setMessage("There is no active batch right now.");
           return;
         }
 
@@ -98,6 +88,14 @@ export default function Waiting() {
           hasActiveMatch = Boolean(match?.id);
         }
 
+        const route = await getRouteForUser(user.id, {
+          id: currentBatchId,
+          status: batchPayload.status ?? null,
+          registration_closes_at: batchPayload.registration_closes_at ?? null,
+          question_closes_at: batchPayload.question_closes_at ?? null,
+          reveal_ready: batchPayload.reveal_ready ?? false
+        });
+
         setState({
           name: profile?.name,
           batchId: currentBatchId,
@@ -108,11 +106,28 @@ export default function Waiting() {
           hasActiveMatch
         });
 
-        if (batchPayload.current_time) {
-          const serverNow = new Date(batchPayload.current_time).getTime();
-          if (!Number.isNaN(serverNow)) {
-            setNow(serverNow);
-          }
+        const registrationClosesAt = batchPayload.registration_closes_at
+          ? new Date(batchPayload.registration_closes_at).getTime()
+          : null;
+        const questionClosesAt = batchPayload.question_closes_at
+          ? new Date(batchPayload.question_closes_at).getTime()
+          : null;
+        const serverNow = batchPayload.current_time ? new Date(batchPayload.current_time).getTime() : Date.now();
+
+        if (!Number.isNaN(serverNow)) {
+          setNow(serverNow);
+        }
+
+        if (route === "register") {
+          setMessage("You are not in the current active batch.");
+        } else if (batchPayload.reveal_ready && !hasActiveMatch) {
+          setMessage("You were not matched this round.");
+        } else if (registrationClosesAt && serverNow < registrationClosesAt) {
+          setMessage("Registration is open. You are in the batch.");
+        } else if (questionClosesAt && serverNow < questionClosesAt) {
+          setMessage("Questions are live right now.");
+        } else {
+          setMessage("Results are being prepared.");
         }
       } finally {
         setIsCheckingUpdates(false);
@@ -128,53 +143,12 @@ export default function Waiting() {
     }, 10000);
 
     return () => window.clearInterval(interval);
-  }, [previewMode, router]);
-
-  useEffect(() => {
-    if (!previewMode && state.revealReady && state.hasActiveMatch && !noMatchYet) {
-      router.push("/reveal");
-    }
-  }, [noMatchYet, previewMode, router, state.hasActiveMatch, state.revealReady]);
-
-  useEffect(() => {
-    if (previewMode) return;
-    if (!state.closesAt || !state.batchId || state.status !== "active" || state.revealReady) return;
-
-    const closesAt = new Date(state.closesAt).getTime();
-    if (Number.isNaN(closesAt) || now < closesAt) return;
-
-    async function routeAfterClose() {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser();
-
-      if (!user) return;
-
-      const [{ count: totalQuestions }, { count: answeredQuestions }] = await Promise.all([
-        supabase.from("questions").select("*", { count: "exact", head: true }),
-        supabase
-          .from("answers")
-          .select("*", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("batch_id", state.batchId)
-      ]);
-
-      if ((answeredQuestions ?? 0) < (totalQuestions ?? 0)) {
-        router.push("/daily");
-      }
-    }
-
-    void routeAfterClose();
-  }, [now, previewMode, router, state.batchId, state.closesAt, state.status]);
+  }, [previewMode]);
 
   return (
     <main className="flex min-h-screen items-center px-6 py-10">
       <div className="tm-shell">
-        {message || noMatchYet ? (
-          <p className="mb-4 text-sm text-[var(--muted)]">
-            {message ?? "Your match is being prepared."}
-          </p>
-        ) : null}
+        {message ? <p className="mb-4 text-sm text-[var(--muted)]">{message}</p> : null}
         <p className="mb-3 text-xs text-[var(--muted)]">Checking for updates...</p>
         <section
           className="rounded-[2rem] p-6 text-white shadow-[var(--shadow)]"

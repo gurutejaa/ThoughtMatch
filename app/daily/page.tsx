@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import QuestionCard, { QuestionType } from "@/components/QuestionCard";
-import { usePreviewMode, withPreview } from "@/lib/preview";
+import { getRouteForUser } from "@/lib/routing";
+import { usePreviewMode } from "@/lib/preview";
 import { supabase } from "@/lib/supabase";
 
 type Question = {
@@ -28,7 +28,6 @@ type BatchStatusResponse = {
 };
 
 export default function Daily() {
-  const router = useRouter();
   const previewMode = usePreviewMode();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [current, setCurrent] = useState(0);
@@ -37,6 +36,9 @@ export default function Daily() {
   const [feedbackPercent, setFeedbackPercent] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [batchId, setBatchId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [questionsClosed, setQuestionsClosed] = useState(false);
+  const [completedAllQuestions, setCompletedAllQuestions] = useState(false);
 
   useEffect(() => {
     async function init() {
@@ -89,6 +91,7 @@ export default function Daily() {
             option_d: ""
           }
         ]);
+        setStatusMessage(null);
         return;
       }
 
@@ -97,40 +100,46 @@ export default function Daily() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.push("/register");
+        setStatusMessage("Sign in to answer questions.");
         return;
       }
 
       setUserId(user.id);
 
-      const { data: profile } = await supabase.from("users").select("batch_id").eq("id", user.id).single();
-      if (!profile?.batch_id) {
-        router.push("/waiting");
-        return;
-      }
-
-      setBatchId(profile.batch_id);
-
-      const { data: batch } = await supabase
+      const { data: activeBatch } = await supabase
         .from("batches")
-        .select("registration_closes_at, question_closes_at")
-        .eq("id", profile.batch_id)
-        .single();
+        .select("id, status, registration_closes_at, question_closes_at, reveal_ready")
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (!batch?.registration_closes_at) {
-        router.push("/waiting");
+      const route = await getRouteForUser(user.id, activeBatch);
+
+      if (!activeBatch?.id) {
+        setStatusMessage("There is no active batch right now.");
         return;
       }
 
-      const closesAt = new Date(batch.registration_closes_at).getTime();
-      if (Number.isNaN(closesAt) || Date.now() < closesAt) {
-        router.push("/waiting");
+      setBatchId(activeBatch.id);
+
+      if (route === "register") {
+        setStatusMessage("You are not in the active batch.");
         return;
       }
 
-      const questionClosesAt = batch.question_closes_at ? new Date(batch.question_closes_at).getTime() : null;
-      if (questionClosesAt && !Number.isNaN(questionClosesAt) && Date.now() >= questionClosesAt) {
-        router.push("/waiting?message=The%20question%20window%20has%20closed.");
+      if (route !== "daily") {
+        const now = Date.now();
+        const questionClosesAt = activeBatch.question_closes_at ? new Date(activeBatch.question_closes_at).getTime() : null;
+
+        if (activeBatch.reveal_ready) {
+          setStatusMessage("Your reveal is live. Reopen the app home to continue.");
+        } else if (questionClosesAt && now >= questionClosesAt) {
+          setQuestionsClosed(true);
+          setStatusMessage("Questions are closed. Results are being prepared.");
+        } else {
+          setStatusMessage("Questions have not opened yet.");
+        }
         return;
       }
 
@@ -139,13 +148,15 @@ export default function Daily() {
         .from("answers")
         .select("question_id")
         .eq("user_id", user.id)
-        .eq("batch_id", profile.batch_id);
+        .eq("batch_id", activeBatch.id);
 
       const answeredIds = new Set((answered ?? []).map((answer: { question_id: string }) => answer.question_id));
       const remaining = (qs ?? []).filter((question: Question) => !answeredIds.has(question.id));
 
       if (remaining.length === 0) {
-        router.push(withPreview("/reveal", previewMode));
+        setCompletedAllQuestions(true);
+        setQuestions([]);
+        setStatusMessage("You completed all questions. Results are being prepared.");
         return;
       }
 
@@ -154,10 +165,13 @@ export default function Daily() {
       setResponseValue(null);
       setIsSubmitting(false);
       setFeedbackPercent(null);
+      setCompletedAllQuestions(false);
+      setQuestionsClosed(false);
+      setStatusMessage(null);
     }
 
     void init();
-  }, [previewMode, router]);
+  }, [previewMode]);
 
   useEffect(() => {
     if (previewMode || !batchId) return;
@@ -180,7 +194,8 @@ export default function Daily() {
           !Number.isNaN(questionClosesAt) &&
           serverNow >= questionClosesAt
         ) {
-          router.push("/waiting?message=The%20question%20window%20has%20closed.");
+          setQuestionsClosed(true);
+          setStatusMessage("Questions are closed. Results are being prepared.");
         }
       } catch {
         // keep the current question flow if polling fails
@@ -192,7 +207,7 @@ export default function Daily() {
     }, 10000);
 
     return () => window.clearInterval(interval);
-  }, [batchId, previewMode, router]);
+  }, [batchId, previewMode]);
 
   function advanceToNextQuestion(delayMs: number) {
     window.setTimeout(() => {
@@ -201,7 +216,9 @@ export default function Daily() {
       setIsSubmitting(false);
 
       if (current + 1 >= questions.length) {
-        router.push(withPreview("/reveal", previewMode));
+        setCompletedAllQuestions(true);
+        setQuestions([]);
+        setStatusMessage("You completed all questions. Results are being prepared.");
         return;
       }
 
@@ -251,10 +268,18 @@ export default function Daily() {
 
   const currentQuestion = questions[current];
 
+  if (statusMessage && (questionsClosed || completedAllQuestions || !currentQuestion)) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-6">
+        <p className="text-sm text-[var(--muted)]">{statusMessage}</p>
+      </main>
+    );
+  }
+
   if (!currentQuestion) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6">
-        <p className="text-sm text-[var(--muted)]">Loading today's questions...</p>
+        <p className="text-sm text-[var(--muted)]">{statusMessage ?? "Loading today's questions..."}</p>
       </main>
     );
   }
