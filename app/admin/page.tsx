@@ -8,6 +8,7 @@ import {
   runMatching,
   setQuestionWindow
 } from "@/app/admin/actions";
+import RefreshButton from "@/app/admin/refresh-button";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const ADMIN_COOKIE = "thoughtmatch-admin";
@@ -266,12 +267,15 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   return (
     <main className="min-h-screen bg-[#0a0a0a] px-4 py-5 text-white">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-6">
-          <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Admin</p>
-          <h1 className="mt-1 text-[2rem] font-semibold tracking-[-0.05em]">ThoughtMatch Dashboard</h1>
-          <p className="mt-2 max-w-2xl text-[0.85rem] leading-6 text-white/58">
-            Control the active batch, monitor progress, run matching, and reveal results when you are ready.
-          </p>
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[0.7rem] uppercase tracking-[0.24em] text-white/40">Admin</p>
+            <h1 className="mt-1 text-[2rem] font-semibold tracking-[-0.05em]">ThoughtMatch Dashboard</h1>
+            <p className="mt-2 max-w-2xl text-[0.85rem] leading-6 text-white/58">
+              Control the active batch, monitor progress, run matching, and reveal results when you are ready.
+            </p>
+          </div>
+          <RefreshButton />
         </div>
 
         {error ? (

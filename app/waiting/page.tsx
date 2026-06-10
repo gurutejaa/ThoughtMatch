@@ -15,6 +15,15 @@ type WaitingState = {
   hasActiveMatch?: boolean | null;
 };
 
+type BatchStatusResponse = {
+  id?: string | null;
+  status?: string | null;
+  registration_closes_at?: string | null;
+  question_closes_at?: string | null;
+  reveal_ready?: boolean;
+  current_time?: string;
+};
+
 export default function Waiting() {
   const router = useRouter();
   const previewMode = usePreviewMode();
@@ -22,6 +31,7 @@ export default function Waiting() {
   const [message, setMessage] = useState<string | null>(null);
   const [noMatchYet, setNoMatchYet] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -48,61 +58,76 @@ export default function Waiting() {
         return;
       }
 
-      const {
-        data: { user }
-      } = await supabase.auth.getUser();
+      setIsCheckingUpdates(true);
 
-      if (!user) {
-        router.push("/register");
-        return;
-      }
+      try {
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
 
-      const { data: profile } = await supabase
-        .from("users")
-        .select("name, batch_id")
-        .eq("id", user.id)
-        .maybeSingle();
+        if (!user) {
+          router.push("/register");
+          return;
+        }
 
-      const { data: activeBatch } = await supabase
-        .from("batches")
-        .select("id, registration_closes_at, question_closes_at, reveal_ready, status")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const currentBatchId = activeBatch?.id ?? null;
-
-      if (!currentBatchId) {
-        setState({ name: profile?.name });
-        return;
-      }
-
-      let hasActiveMatch = false;
-      if (activeBatch?.reveal_ready) {
-        const { data: match } = await supabase
-          .from("matches")
-          .select("id")
-          .eq("batch_id", currentBatchId)
-          .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-          .limit(1)
+        const { data: profile } = await supabase
+          .from("users")
+          .select("name, batch_id")
+          .eq("id", user.id)
           .maybeSingle();
 
-        hasActiveMatch = Boolean(match?.id);
-      }
+        const response = await fetch("/api/batch-status", { cache: "no-store" });
+        const batchPayload = (await response.json()) as BatchStatusResponse;
+        const currentBatchId = batchPayload.id ?? null;
 
-      setState({
-        name: profile?.name,
-        batchId: currentBatchId,
-        closesAt: activeBatch?.registration_closes_at,
-        questionClosesAt: activeBatch?.question_closes_at,
-        revealReady: activeBatch?.reveal_ready,
-        status: activeBatch?.status,
-        hasActiveMatch
-      });
+        if (!currentBatchId) {
+          setState({ name: profile?.name });
+          return;
+        }
+
+        let hasActiveMatch = false;
+        if (batchPayload.reveal_ready) {
+          const { data: match } = await supabase
+            .from("matches")
+            .select("id")
+            .eq("batch_id", currentBatchId)
+            .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
+            .limit(1)
+            .maybeSingle();
+
+          hasActiveMatch = Boolean(match?.id);
+        }
+
+        setState({
+          name: profile?.name,
+          batchId: currentBatchId,
+          closesAt: batchPayload.registration_closes_at ?? null,
+          questionClosesAt: batchPayload.question_closes_at ?? null,
+          revealReady: batchPayload.reveal_ready ?? false,
+          status: batchPayload.status ?? null,
+          hasActiveMatch
+        });
+
+        if (batchPayload.current_time) {
+          const serverNow = new Date(batchPayload.current_time).getTime();
+          if (!Number.isNaN(serverNow)) {
+            setNow(serverNow);
+          }
+        }
+      } finally {
+        setIsCheckingUpdates(false);
+      }
     }
 
-    load();
+    void load();
+
+    if (previewMode) return;
+
+    const interval = window.setInterval(() => {
+      void load();
+    }, 10000);
+
+    return () => window.clearInterval(interval);
   }, [previewMode, router]);
 
   useEffect(() => {
@@ -150,6 +175,7 @@ export default function Waiting() {
             {message ?? "Your match is being prepared."}
           </p>
         ) : null}
+        <p className="mb-3 text-xs text-[var(--muted)]">Checking for updates...</p>
         <section
           className="rounded-[2rem] p-6 text-white shadow-[var(--shadow)]"
           style={{ backgroundImage: "linear-gradient(155deg,var(--hero-start),var(--hero-end))" }}
@@ -187,6 +213,11 @@ export default function Waiting() {
             {state.revealReady && !state.hasActiveMatch ? (
               <p className="mt-2 text-xs text-white/58">
                 Results are being prepared.
+              </p>
+            ) : null}
+            {isCheckingUpdates ? (
+              <p className="mt-2 text-xs text-white/58">
+                Checking for updates...
               </p>
             ) : null}
           </div>

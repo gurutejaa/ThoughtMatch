@@ -18,6 +18,15 @@ type Question = {
 
 type AnswerValue = number | string | null;
 
+type BatchStatusResponse = {
+  id?: string | null;
+  status?: string | null;
+  registration_closes_at?: string | null;
+  question_closes_at?: string | null;
+  reveal_ready?: boolean;
+  current_time?: string;
+};
+
 export default function Daily() {
   const router = useRouter();
   const previewMode = usePreviewMode();
@@ -149,6 +158,41 @@ export default function Daily() {
 
     void init();
   }, [previewMode, router]);
+
+  useEffect(() => {
+    if (previewMode || !batchId) return;
+
+    async function pollBatchStatus() {
+      try {
+        const response = await fetch("/api/batch-status", { cache: "no-store" });
+        const payload = (await response.json()) as BatchStatusResponse;
+
+        if (!response.ok) {
+          return;
+        }
+
+        const serverNow = payload.current_time ? new Date(payload.current_time).getTime() : Date.now();
+        const questionClosesAt = payload.question_closes_at ? new Date(payload.question_closes_at).getTime() : null;
+
+        if (
+          payload.id === batchId &&
+          questionClosesAt !== null &&
+          !Number.isNaN(questionClosesAt) &&
+          serverNow >= questionClosesAt
+        ) {
+          router.push("/waiting?message=The%20question%20window%20has%20closed.");
+        }
+      } catch {
+        // keep the current question flow if polling fails
+      }
+    }
+
+    const interval = window.setInterval(() => {
+      void pollBatchStatus();
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, [batchId, previewMode, router]);
 
   function advanceToNextQuestion(delayMs: number) {
     window.setTimeout(() => {

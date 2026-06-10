@@ -29,6 +29,15 @@ type BatchWindow = {
   status: string | null;
 };
 
+type BatchStatusResponse = {
+  id?: string | null;
+  status?: string | null;
+  registration_closes_at?: string | null;
+  question_closes_at?: string | null;
+  reveal_ready?: boolean;
+  current_time?: string;
+};
+
 type RegisterStage = "email" | "new" | "returning";
 
 function getReadableRandomColor() {
@@ -122,6 +131,7 @@ export default function Register() {
   const [batchWindowLoaded, setBatchWindowLoaded] = useState(previewMode);
   const [now, setNow] = useState(() => Date.now());
   const [timerColor, setTimerColor] = useState(() => getReadableRandomColor());
+  const [registrationClosedNotice, setRegistrationClosedNotice] = useState(false);
 
   const zodiac =
     form.dob_month && form.dob_day ? getZodiac(Number(form.dob_month), Number(form.dob_day)) : "";
@@ -176,6 +186,51 @@ export default function Register() {
 
     void loadBatchWindow();
   }, [previewMode]);
+
+  useEffect(() => {
+    if (previewMode) return;
+
+    async function pollBatchStatus() {
+      try {
+        const response = await fetch("/api/batch-status", { cache: "no-store" });
+        const payload = (await response.json()) as BatchStatusResponse;
+
+        if (!response.ok) {
+          return;
+        }
+
+        const previousClosesAt = batchWindow.closesAt ? new Date(batchWindow.closesAt).getTime() : null;
+        const nextClosesAt = payload.registration_closes_at ? new Date(payload.registration_closes_at).getTime() : null;
+        const currentServerTime = payload.current_time ? new Date(payload.current_time).getTime() : Date.now();
+
+        if (
+          previousClosesAt !== null &&
+          nextClosesAt !== null &&
+          previousClosesAt > currentServerTime &&
+          nextClosesAt <= currentServerTime
+        ) {
+          setRegistrationClosedNotice(true);
+        }
+
+        setBatchWindow({
+          closesAt: payload.registration_closes_at ?? null,
+          status: payload.status ?? null
+        });
+
+        if (!Number.isNaN(currentServerTime)) {
+          setNow(currentServerTime);
+        }
+      } catch {
+        // keep current UI state if polling fails
+      }
+    }
+
+    const interval = window.setInterval(() => {
+      void pollBatchStatus();
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+  }, [batchWindow.closesAt, previewMode]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -448,6 +503,9 @@ export default function Register() {
               />
               {error.field === "email" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
               {error.field === "submit" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {registrationClosedNotice ? (
+                <p className="px-1 text-sm text-[var(--muted)]">Registration is now closed.</p>
+              ) : null}
               {!previewMode && !batchWindowLoaded ? (
                 <p className="px-1 text-sm text-[var(--muted)]">Checking if registration is open...</p>
               ) : null}
@@ -577,6 +635,9 @@ export default function Register() {
               {zodiac ? <p className="px-1 text-[12px] text-[var(--muted)]">Your zodiac sign: {zodiac}</p> : null}
 
               {error.field === "submit" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {registrationClosedNotice ? (
+                <p className="px-1 text-sm text-[var(--muted)]">Registration is now closed.</p>
+              ) : null}
 
               <button
                 type="submit"
