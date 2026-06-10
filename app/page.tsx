@@ -36,19 +36,45 @@ export default function Home() {
         return;
       }
 
-      const { data: batch } = await supabase
+      const { data: activeBatch } = await supabase
         .from("batches")
-        .select("status, registration_closes_at, reveal_ready")
-        .eq("id", profile.batch_id)
+        .select("id, status, registration_closes_at, reveal_ready")
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (!batch) {
+      if (!activeBatch) {
         router.push("/waiting");
         return;
       }
 
-      if (batch.reveal_ready) {
-        router.push("/reveal");
+      if (activeBatch.reveal_ready) {
+        const { data: match } = await supabase
+          .from("matches")
+          .select("id")
+          .eq("batch_id", activeBatch.id)
+          .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
+          .limit(1)
+          .maybeSingle();
+
+        if (match?.id) {
+          router.push("/reveal");
+          return;
+        }
+
+        router.push("/waiting?nomatch=true&message=Your%20match%20is%20being%20prepared.");
+        return;
+      }
+
+      const { data: batch } = await supabase
+        .from("batches")
+        .select("status, registration_closes_at, reveal_ready")
+        .eq("id", activeBatch.id)
+        .maybeSingle();
+
+      if (!batch) {
+        router.push("/waiting");
         return;
       }
 
@@ -65,7 +91,7 @@ export default function Home() {
           .from("answers")
           .select("*", { count: "exact", head: true })
           .eq("user_id", user.id)
-          .eq("batch_id", profile.batch_id)
+          .eq("batch_id", activeBatch.id)
       ]);
 
       if ((answeredQuestions ?? 0) >= (totalQuestions ?? 0)) {

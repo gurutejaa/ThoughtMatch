@@ -63,23 +63,27 @@ export default function Waiting() {
         .eq("id", user.id)
         .maybeSingle();
 
-      if (!profile?.batch_id) {
+      const { data: activeBatch } = await supabase
+        .from("batches")
+        .select("id, registration_closes_at, question_closes_at, reveal_ready, status")
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const currentBatchId = activeBatch?.id ?? null;
+
+      if (!currentBatchId) {
         setState({ name: profile?.name });
         return;
       }
 
-      const { data: batch } = await supabase
-        .from("batches")
-        .select("registration_closes_at, question_closes_at, reveal_ready, status")
-        .eq("id", profile.batch_id)
-        .maybeSingle();
-
       let hasActiveMatch = false;
-      if (batch?.reveal_ready) {
+      if (activeBatch?.reveal_ready) {
         const { data: match } = await supabase
           .from("matches")
           .select("id")
-          .eq("batch_id", profile.batch_id)
+          .eq("batch_id", currentBatchId)
           .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
           .limit(1)
           .maybeSingle();
@@ -88,12 +92,12 @@ export default function Waiting() {
       }
 
       setState({
-        name: profile.name,
-        batchId: profile.batch_id,
-        closesAt: batch?.registration_closes_at,
-        questionClosesAt: batch?.question_closes_at,
-        revealReady: batch?.reveal_ready,
-        status: batch?.status,
+        name: profile?.name,
+        batchId: currentBatchId,
+        closesAt: activeBatch?.registration_closes_at,
+        questionClosesAt: activeBatch?.question_closes_at,
+        revealReady: activeBatch?.reveal_ready,
+        status: activeBatch?.status,
         hasActiveMatch
       });
     }
