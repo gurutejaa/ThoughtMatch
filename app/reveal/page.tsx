@@ -106,7 +106,7 @@ export default function Reveal() {
         .maybeSingle();
 
       if (!topMatch) {
-        router.push("/waiting?message=Your%20match%20isn%27t%20ready%20yet.");
+        router.push("/waiting?nomatch=true&message=Your%20match%20is%20being%20prepared.");
         return;
       }
 
@@ -123,7 +123,7 @@ export default function Reveal() {
 
       if (otherError) {
         setStatusMessage("Your match isn't ready yet.");
-        router.push("/waiting?message=Your%20match%20isn%27t%20ready%20yet.");
+        router.push("/waiting?nomatch=true&message=Your%20match%20is%20being%20prepared.");
         return;
       }
 

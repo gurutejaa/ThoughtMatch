@@ -12,6 +12,7 @@ type WaitingState = {
   name?: string | null;
   batchId?: string | null;
   revealReady?: boolean | null;
+  hasActiveMatch?: boolean | null;
 };
 
 export default function Waiting() {
@@ -19,10 +20,13 @@ export default function Waiting() {
   const previewMode = usePreviewMode();
   const [state, setState] = useState<WaitingState>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [noMatchYet, setNoMatchYet] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    setMessage(new URLSearchParams(window.location.search).get("message"));
+    const params = new URLSearchParams(window.location.search);
+    setMessage(params.get("message"));
+    setNoMatchYet(params.get("nomatch") === "true");
   }, []);
 
   useEffect(() => {
@@ -38,7 +42,8 @@ export default function Waiting() {
           status: "active",
           closesAt: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
           questionClosesAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-          revealReady: false
+          revealReady: false,
+          hasActiveMatch: false
         });
         return;
       }
@@ -69,13 +74,27 @@ export default function Waiting() {
         .eq("id", profile.batch_id)
         .maybeSingle();
 
+      let hasActiveMatch = false;
+      if (batch?.reveal_ready) {
+        const { data: match } = await supabase
+          .from("matches")
+          .select("id")
+          .eq("batch_id", profile.batch_id)
+          .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
+          .limit(1)
+          .maybeSingle();
+
+        hasActiveMatch = Boolean(match?.id);
+      }
+
       setState({
         name: profile.name,
         batchId: profile.batch_id,
         closesAt: batch?.registration_closes_at,
         questionClosesAt: batch?.question_closes_at,
         revealReady: batch?.reveal_ready,
-        status: batch?.status
+        status: batch?.status,
+        hasActiveMatch
       });
     }
 
@@ -83,10 +102,10 @@ export default function Waiting() {
   }, [previewMode, router]);
 
   useEffect(() => {
-    if (!previewMode && state.revealReady) {
+    if (!previewMode && state.revealReady && state.hasActiveMatch && !noMatchYet) {
       router.push("/reveal");
     }
-  }, [previewMode, router, state.revealReady]);
+  }, [noMatchYet, previewMode, router, state.hasActiveMatch, state.revealReady]);
 
   useEffect(() => {
     if (previewMode) return;
@@ -122,7 +141,11 @@ export default function Waiting() {
   return (
     <main className="flex min-h-screen items-center px-6 py-10">
       <div className="tm-shell">
-        {message ? <p className="mb-4 text-sm text-[var(--muted)]">{message}</p> : null}
+        {message || noMatchYet ? (
+          <p className="mb-4 text-sm text-[var(--muted)]">
+            {message ?? "Your match is being prepared."}
+          </p>
+        ) : null}
         <section
           className="rounded-[2rem] p-6 text-white shadow-[var(--shadow)]"
           style={{ backgroundImage: "linear-gradient(155deg,var(--hero-start),var(--hero-end))" }}
@@ -155,6 +178,11 @@ export default function Waiting() {
             {state.closesAt && new Date(state.closesAt).getTime() <= now && !state.revealReady ? (
               <p className="mt-2 text-xs text-white/58">
                 Once everyone finishes, the admin will run matching and reveal the results.
+              </p>
+            ) : null}
+            {state.revealReady && !state.hasActiveMatch ? (
+              <p className="mt-2 text-xs text-white/58">
+                Results are being prepared.
               </p>
             ) : null}
           </div>
