@@ -482,7 +482,7 @@ export default function Register() {
             <p
               className="mt-3 text-left text-[1.75rem] leading-none tracking-[-0.06em]"
               style={{
-                fontFamily: '"Bodoni 72", "Didot", "Times New Roman", serif',
+                fontFamily: "var(--font-display)",
                 fontWeight: 700,
                 color: timerColor
               }}

@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
+import { Cinzel } from "next/font/google";
 import ThemeProvider from "@/components/ThemeProvider";
 import "./globals.css";
+
+const cinzel = Cinzel({
+  subsets: ["latin"],
+  variable: "--font-cinzel"
+});
 
 export const metadata: Metadata = {
   title: "ThoughtMatch",
@@ -14,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={cinzel.variable}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

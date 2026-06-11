@@ -23,9 +23,9 @@
   --chip-background: rgba(0, 0, 0, 0.08);
   --success: #0f8a5f;
   --shadow: 0 24px 60px rgba(86, 43, 28, 0.12);
-  --font-display: Inter, "Segoe UI", Arial, sans-serif;
-  --font-body: Inter, "Segoe UI", Arial, sans-serif;
-  --font-ui: Inter, "Segoe UI", Arial, sans-serif;
+  --font-display: var(--font-cinzel), "Times New Roman", serif;
+  --font-body: var(--font-cinzel), "Times New Roman", serif;
+  --font-ui: var(--font-cinzel), "Times New Roman", serif;
 }
 
 html[data-theme="women"] {
