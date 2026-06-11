@@ -24,8 +24,8 @@
   --success: #0f8a5f;
   --shadow: 0 24px 60px rgba(86, 43, 28, 0.12);
   --font-display: var(--font-cinzel), "Times New Roman", serif;
-  --font-body: var(--font-cinzel), "Times New Roman", serif;
-  --font-ui: var(--font-cinzel), "Times New Roman", serif;
+  --font-body: var(--font-manrope), "Segoe UI", Arial, sans-serif;
+  --font-ui: var(--font-manrope), "Segoe UI", Arial, sans-serif;
 }
 
 html[data-theme="women"] {

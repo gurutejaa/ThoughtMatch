@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
-import { Cinzel } from "next/font/google";
+import { Cinzel, Manrope } from "next/font/google";
 import ThemeProvider from "@/components/ThemeProvider";
 import "./globals.css";
 
 const cinzel = Cinzel({
   subsets: ["latin"],
   variable: "--font-cinzel"
+});
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-manrope"
 });
 
 export const metadata: Metadata = {
@@ -20,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={cinzel.variable}>
+      <body className={`${cinzel.variable} ${manrope.variable}`}>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
