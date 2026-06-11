@@ -45,6 +45,21 @@ export default function Home() {
         .limit(1)
         .maybeSingle();
 
+      if (activeBatch?.id) {
+        const { data: batchRegistration } = await supabase
+          .from("batch_registrations")
+          .select("user_id")
+          .eq("batch_id", activeBatch.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!batchRegistration?.user_id) {
+          await supabase.auth.signOut();
+          router.push("/register");
+          return;
+        }
+      }
+
       const route = await getRouteForUser(user.id, activeBatch);
       router.push(`/${route === "register" ? "register" : route}`);
     }
