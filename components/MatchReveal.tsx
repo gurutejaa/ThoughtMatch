@@ -5,6 +5,7 @@ type MatchRevealProps = {
   matchUser: {
     name?: string | null;
     instagram_handle?: string | null;
+    zodiac?: string | null;
   } | null;
   categoryScores: CategoryScores;
   summary?: string | null;
@@ -56,7 +57,7 @@ export default function MatchReveal({
             >
               {matchUser?.name ?? "Pending reveal"}
             </div>
-            <p className="mt-3 text-sm text-[#78716C]">Zodiac sign on file</p>
+            <p className="mt-3 text-sm text-[#78716C]">{matchUser?.zodiac ?? "Zodiac sign on file"}</p>
           </div>
 
           <div

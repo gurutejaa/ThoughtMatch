@@ -26,7 +26,11 @@ type BatchOffer = {
 export default function Reveal() {
   const previewMode = usePreviewMode();
   const [match, setMatch] = useState<MatchRecord | null>(null);
-  const [matchUser, setMatchUser] = useState<{ name?: string | null; instagram_handle?: string | null } | null>(null);
+  const [matchUser, setMatchUser] = useState<{
+    name?: string | null;
+    instagram_handle?: string | null;
+    zodiac?: string | null;
+  } | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [score, setScore] = useState(0);
   const [animScore, setAnimScore] = useState(0);
@@ -39,31 +43,29 @@ export default function Reveal() {
         setMatch({
           user_a: "preview-a",
           user_b: "preview-b",
-          total_score: 88,
-          match_summary: "Your strongest alignment shows up in mindset and relationship outlook, with enough consistency across the rest of your answers to make the pairing feel intentional.",
+          total_score: 84,
+          match_summary: "Your strongest alignment shows in mindset and lifestyle.",
           match_reasons: [
-            "You tend to think through choices in a similar way, which creates a more natural mental rhythm.",
-            "You seem to want similar things from trust, closeness, and connection.",
-            "Your daily energy and way of moving through life line up more naturally than not."
+            "You both approach decisions with instinct over analysis.",
+            "They recharge by being around people while you prefer quiet — this works if you give each other space."
           ],
           shared_answer_count: 8,
           category_scores: {
-            mindset: 92,
-            emotional: 86,
-            lifestyle: 83,
-            relationship: 90
+            mindset: 91,
+            emotional: 78,
+            lifestyle: 85,
+            money: 70,
+            habits: 82,
+            relationship: 88
           }
         });
-        setScore(88);
+        setScore(84);
         setMatchUser({
           name: "Alex",
-          instagram_handle: "alex.preview"
+          instagram_handle: "alex.preview",
+          zodiac: "Leo"
         });
-        setPartnerOffer({
-          partner_name: "Northside Cafe",
-          offer_title: "Matched Pair Coffee Date",
-          offer_description: "Bring your reveal and enjoy a free pastry with any two coffee orders."
-        });
+        setPartnerOffer(null);
         return;
       }
 

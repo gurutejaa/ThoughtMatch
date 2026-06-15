@@ -10,15 +10,20 @@ export function usePreviewMode() {
   const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
+    const queryEnabled = new URLSearchParams(window.location.search).get("preview") === "true";
+    if (queryEnabled) {
+      setPreviewMode(true);
+      return;
+    }
+
     if (isProductionBuild()) {
       setPreviewMode(false);
       return;
     }
 
     const envEnabled = process.env.NEXT_PUBLIC_DEV_MODE === "true";
-    const queryEnabled = new URLSearchParams(window.location.search).get("preview") === "true";
 
-    setPreviewMode(queryEnabled || envEnabled);
+    setPreviewMode(envEnabled);
   }, []);
 
   return previewMode;
