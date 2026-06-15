@@ -7,7 +7,6 @@ import { usePreviewMode, withPreview } from "@/lib/preview";
 import { supabase } from "@/lib/supabase";
 import { parseUSPhone } from "@/lib/phone";
 import { getZodiac } from "@/lib/zodiac";
-import { applyThemeGender, persistThemeGender } from "@/lib/theme";
 
 type FormState = {
   name: string;
@@ -40,12 +39,6 @@ type BatchStatusResponse = {
 
 type RegisterStage = "email" | "new" | "returning";
 
-function getReadableRandomColor() {
-  const channel = () => Math.floor(Math.random() * 156);
-  const toHex = (value: number) => value.toString(16).padStart(2, "0");
-  return `#${toHex(channel())}${toHex(channel())}${toHex(channel())}`;
-}
-
 const initialForm: FormState = {
   name: "",
   email: "",
@@ -71,23 +64,23 @@ const monthNames = [
   "December"
 ];
 
-const neutralThemeStyle = {
-  backgroundColor: "#ffffff",
-  color: "#000000",
-  "--background": "#ffffff",
-  "--background-strong": "#ffffff",
-  "--card": "rgba(255, 255, 255, 0.92)",
-  "--card-strong": "rgba(255, 255, 255, 0.98)",
-  "--foreground": "#000000",
-  "--muted": "rgba(0, 0, 0, 0.62)",
-  "--line": "rgba(0, 0, 0, 0.12)",
-  "--accent": "#000000",
-  "--accent-deep": "#000000",
-  "--accent-soft": "rgba(0, 0, 0, 0.08)",
-  "--primary": "#000000",
-  "--primary-contrast": "#ffffff",
-  "--surface": "#ffffff",
-  "--input-border": "rgba(0, 0, 0, 0.12)"
+const registerThemeStyle = {
+  backgroundColor: "#FEF7F0",
+  color: "#292524",
+  "--background": "#FEF7F0",
+  "--background-strong": "#FFFFFF",
+  "--card": "#FFFFFF",
+  "--card-strong": "#FFFFFF",
+  "--foreground": "#292524",
+  "--muted": "#A8A29E",
+  "--line": "#FDE5D4",
+  "--accent": "#C2410C",
+  "--accent-deep": "#C2410C",
+  "--accent-soft": "#FFF7ED",
+  "--primary": "#C2410C",
+  "--primary-contrast": "#FFFFFF",
+  "--surface": "#FFFFFF",
+  "--input-border": "#FDE5D4"
 } as React.CSSProperties;
 
 function getAge(year: string, month: string, day: string) {
@@ -120,6 +113,15 @@ function formatCountdown(msRemaining: number) {
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
+const inputClassName =
+  "h-11 w-full rounded-lg border border-[#FDE5D4] bg-white px-4 text-sm text-[#292524] outline-none transition-all duration-200 ease-in-out placeholder:text-[#A8A29E] focus:border-[#C2410C]";
+
+const selectClassName =
+  "h-11 w-full rounded-lg border border-[#FDE5D4] bg-white px-4 text-sm text-[#292524] outline-none transition-all duration-200 ease-in-out focus:border-[#C2410C]";
+
+const buttonClassName =
+  "mt-2 h-11 w-full rounded-lg bg-[#C2410C] px-4 text-sm font-medium text-white transition-all duration-200 ease-in-out hover:bg-[#9A3412] disabled:cursor-not-allowed disabled:opacity-50";
+
 export default function Register() {
   const router = useRouter();
   const previewMode = usePreviewMode();
@@ -130,12 +132,10 @@ export default function Register() {
   const [batchWindow, setBatchWindow] = useState<BatchWindow>({ closesAt: null, status: null });
   const [batchWindowLoaded, setBatchWindowLoaded] = useState(previewMode);
   const [now, setNow] = useState(() => Date.now());
-  const [timerColor, setTimerColor] = useState(() => getReadableRandomColor());
   const [registrationClosedNotice, setRegistrationClosedNotice] = useState(false);
 
   const zodiac =
     form.dob_month && form.dob_day ? getZodiac(Number(form.dob_month), Number(form.dob_day)) : "";
-  const neutralTheme = !form.gender;
   const closesAtMs = batchWindow.closesAt ? new Date(batchWindow.closesAt).getTime() : null;
   const countdownExpired = closesAtMs !== null && closesAtMs <= now;
   const registrationUnavailable = !previewMode && batchWindowLoaded && (!batchWindow.closesAt || countdownExpired);
@@ -146,16 +146,6 @@ export default function Register() {
       setStage("new");
     }
   }, [previewMode]);
-
-  useEffect(() => {
-    if (!form.gender) {
-      applyThemeGender(null);
-      return;
-    }
-
-    persistThemeGender(form.gender);
-    applyThemeGender(form.gender);
-  }, [form.gender]);
 
   useEffect(() => {
     if (previewMode) {
@@ -235,7 +225,6 @@ export default function Register() {
   useEffect(() => {
     const timer = window.setInterval(() => {
       setNow(Date.now());
-      setTimerColor(getReadableRandomColor());
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
@@ -400,8 +389,6 @@ export default function Register() {
     setError({ field: "", message: "" });
 
     if (previewMode) {
-      persistThemeGender(form.gender || "Women");
-      applyThemeGender(form.gender || "Women");
       localStorage.setItem(
         "reg_form",
         JSON.stringify({
@@ -443,9 +430,6 @@ export default function Register() {
       zodiac: getZodiac(Number(form.dob_month), Number(form.dob_day))
     };
 
-    persistThemeGender(regForm.gender);
-    applyThemeGender(regForm.gender);
-
     const signInError = await sendOtp(form.email.trim().toLowerCase(), regForm);
 
     if (signInError) {
@@ -464,57 +448,52 @@ export default function Register() {
   const days = Array.from({ length: 31 }, (_, index) => String(index + 1));
 
   return (
-    <main
-      className="flex min-h-screen justify-center px-4 py-4"
-      style={neutralTheme ? neutralThemeStyle : undefined}
-    >
-      <div className="tm-shell max-w-[460px]">
-        <div>
-          <div className="mb-3 pt-1">
-            <h1 className="text-left text-[2.25rem] font-extrabold leading-[0.92] tracking-[-0.06em] text-[var(--foreground)]">
-              <span className="block">People who</span>
-              <span className="block">think like</span>
-              <span className="block">you exist.</span>
-            </h1>
-            <p className="mt-2 max-w-[20rem] text-left text-[13px] font-medium leading-5 text-[var(--muted)]">
+    <main className="relative flex min-h-screen justify-center overflow-hidden px-4 py-6" style={registerThemeStyle}>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 flex items-center justify-center text-[5.5rem] font-semibold tracking-[-0.06em] text-[#C2410C]"
+        style={{ opacity: 0.06, transform: "rotate(-15deg)" }}
+      >
+        ThoughtMatch
+      </div>
+
+      <div className="tm-shell relative z-10 max-w-[460px]">
+        <div className="rounded-2xl border border-[#FDE5D4] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(0,0,0,0.03)]">
+          <div className="mb-4 pt-1">
+            <div className="flex items-start justify-between gap-4">
+              <h1
+                className="text-left text-[2.5rem] font-medium leading-[0.92] tracking-[-0.05em] text-[#292524]"
+                style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+              >
+                <span className="block">People who</span>
+                <span className="block">think like</span>
+                <span className="block">you exist.</span>
+              </h1>
+              <p className="pt-1 text-right text-[13px] font-medium text-[#78716C]">{countdownLabel ?? "--"}</p>
+            </div>
+            <p className="mt-3 max-w-[20rem] text-left text-[13px] font-medium leading-5 text-[#78716C]">
               Join a matching experience built around mindset, behavior, and meaningful connection.
-            </p>
-            <p
-              className="mt-3 text-left text-[1.75rem] leading-none tracking-[-0.06em]"
-              style={{
-                fontFamily: "var(--font-display)",
-                fontWeight: 700,
-                color: timerColor
-              }}
-            >
-              {countdownLabel ?? "--"}
             </p>
           </div>
 
           {stage === "email" ? (
             <form className="space-y-2" onSubmit={handleEmailContinue}>
               <input
-                className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
-                style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                className={inputClassName}
                 placeholder="Email address"
                 type="email"
                 value={form.email}
                 onChange={(event) => handleFieldChange("email", event.target.value)}
               />
-              {error.field === "email" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-              {error.field === "submit" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {error.field === "email" ? <p className="px-1 text-sm text-[#C2410C]">{error.message}</p> : null}
+              {error.field === "submit" ? <p className="px-1 text-sm text-[#C2410C]">{error.message}</p> : null}
               {registrationClosedNotice ? (
-                <p className="px-1 text-sm text-[var(--muted)]">Registration is now closed.</p>
+                <p className="px-1 text-sm text-[#78716C]">Registration is now closed.</p>
               ) : null}
               {!previewMode && !batchWindowLoaded ? (
-                <p className="px-1 text-sm text-[var(--muted)]">Checking if registration is open...</p>
+                <p className="px-1 text-sm text-[#78716C]">Checking if registration is open...</p>
               ) : null}
-              <button
-                type="submit"
-                disabled={loading || !batchWindowLoaded || registrationUnavailable}
-                className="mt-2 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
-              >
+              <button type="submit" disabled={loading || !batchWindowLoaded || registrationUnavailable} className={buttonClassName}>
                 {loading
                   ? "Checking..."
                   : !batchWindowLoaded && !previewMode
@@ -527,19 +506,15 @@ export default function Register() {
           ) : null}
 
           {stage === "returning" ? (
-            <section
-              className="rounded-[1.5rem] border px-5 py-6"
-              style={{ borderColor: "var(--input-border)", backgroundColor: "var(--surface)" }}
-            >
-              <p className="text-xl font-semibold text-[var(--foreground)]">Welcome back.</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
+            <section className="rounded-2xl border border-[#FDE5D4] bg-white px-5 py-6">
+              <p className="text-xl font-semibold text-[#292524]">Welcome back.</p>
+              <p className="mt-2 text-sm leading-6 text-[#78716C]">
                 We sent a code to your email. Taking you to verification now.
               </p>
               <button
                 type="button"
                 onClick={() => router.push(withPreview("/verify", previewMode))}
-                className="mt-5 w-full rounded-xl px-4 py-3 text-sm font-medium transition"
-                style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
+                className="mt-5 h-11 w-full rounded-lg bg-[#C2410C] px-4 text-sm font-medium text-white transition-all duration-200 ease-in-out hover:bg-[#9A3412]"
               >
                 Enter code
               </button>
@@ -550,80 +525,65 @@ export default function Register() {
             <form className="space-y-2" onSubmit={handleSubmit}>
               <div className="grid grid-cols-2 gap-2.5">
                 <input
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
-                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                  className={inputClassName}
                   placeholder="Full name"
                   value={form.name}
                   onChange={(event) => handleFieldChange("name", event.target.value)}
                 />
-                <select
-                  className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none"
-                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-                  value={form.gender}
-                  onChange={(event) => handleFieldChange("gender", event.target.value)}
-                >
-                  <option value="" disabled hidden>Gender</option>
+                <select className={selectClassName} value={form.gender} onChange={(event) => handleFieldChange("gender", event.target.value)}>
+                  <option value="" disabled hidden>
+                    Gender
+                  </option>
                   <option>Men</option>
                   <option>Women</option>
                 </select>
               </div>
-              {error.field === "name" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-              {error.field === "gender" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {error.field === "name" ? <p className="px-1 text-sm text-[#C2410C]">{error.message}</p> : null}
+              {error.field === "gender" ? <p className="px-1 text-sm text-[#C2410C]">{error.message}</p> : null}
 
               <input
-                className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
-                style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                className={inputClassName}
                 placeholder="Email address"
                 type="email"
                 value={form.email}
                 onChange={(event) => handleFieldChange("email", event.target.value)}
               />
-              {error.field === "email" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {error.field === "email" ? <p className="px-1 text-sm text-[#C2410C]">{error.message}</p> : null}
 
               <input
-                className="w-full rounded-xl px-4 py-3 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--muted)]"
-                style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
+                className={inputClassName}
                 placeholder="(555) 000-0000"
                 type="tel"
                 value={form.phone}
                 onChange={(event) => handleFieldChange("phone", event.target.value)}
               />
-              {error.field === "phone" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
+              {error.field === "phone" ? <p className="px-1 text-sm text-[#C2410C]">{error.message}</p> : null}
 
               <div className="grid grid-cols-3 gap-2.5">
-                <select
-                  className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
-                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-                  value={form.dob_month}
-                  onChange={(event) => handleFieldChange("dob_month", event.target.value)}
-                >
-                  <option value="" disabled hidden>Month</option>
+                <select className={selectClassName} value={form.dob_month} onChange={(event) => handleFieldChange("dob_month", event.target.value)}>
+                  <option value="" disabled hidden>
+                    Month
+                  </option>
                   {monthNames.map((month, index) => (
                     <option key={month} value={String(index + 1)}>
                       {month}
                     </option>
                   ))}
                 </select>
-                <select
-                  className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
-                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-                  value={form.dob_day}
-                  onChange={(event) => handleFieldChange("dob_day", event.target.value)}
-                >
-                  <option value="" disabled hidden>Day</option>
+                <select className={selectClassName} value={form.dob_day} onChange={(event) => handleFieldChange("dob_day", event.target.value)}>
+                  <option value="" disabled hidden>
+                    Day
+                  </option>
                   {days.map((day) => (
                     <option key={day} value={day}>
                       {day}
                     </option>
                   ))}
                 </select>
-                <select
-                  className="w-full rounded-xl px-3 py-3 text-sm text-[var(--foreground)] outline-none"
-                  style={{ border: "1px solid var(--input-border)", backgroundColor: "var(--surface)" }}
-                  value={form.dob_year}
-                  onChange={(event) => handleFieldChange("dob_year", event.target.value)}
-                >
-                  <option value="" disabled hidden>Year</option>
+                <select className={selectClassName} value={form.dob_year} onChange={(event) => handleFieldChange("dob_year", event.target.value)}>
+                  <option value="" disabled hidden>
+                    Year
+                  </option>
                   {years.map((year) => (
                     <option key={year} value={year}>
                       {year}
@@ -631,20 +591,13 @@ export default function Register() {
                   ))}
                 </select>
               </div>
-              {error.field === "dob" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-              {zodiac ? <p className="px-1 text-[12px] text-[var(--muted)]">Your zodiac sign: {zodiac}</p> : null}
+              {error.field === "dob" ? <p className="px-1 text-sm text-[#C2410C]">{error.message}</p> : null}
+              {zodiac ? <p className="px-1 text-[12px] text-[#78716C]">Your zodiac sign: {zodiac}</p> : null}
 
-              {error.field === "submit" ? <p className="px-1 text-sm text-red-600">{error.message}</p> : null}
-              {registrationClosedNotice ? (
-                <p className="px-1 text-sm text-[var(--muted)]">Registration is now closed.</p>
-              ) : null}
+              {error.field === "submit" ? <p className="px-1 text-sm text-[#C2410C]">{error.message}</p> : null}
+              {registrationClosedNotice ? <p className="px-1 text-sm text-[#78716C]">Registration is now closed.</p> : null}
 
-              <button
-                type="submit"
-                disabled={loading || !batchWindowLoaded || registrationUnavailable}
-                className="mt-2 w-full rounded-xl px-4 py-3 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ backgroundColor: "var(--primary)", color: "var(--primary-contrast)" }}
-              >
+              <button type="submit" disabled={loading || !batchWindowLoaded || registrationUnavailable} className={buttonClassName}>
                 {loading
                   ? "Sending code..."
                   : !batchWindowLoaded && !previewMode
