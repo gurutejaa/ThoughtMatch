@@ -50,6 +50,34 @@ function tokenize(value: string | null | undefined) {
     .filter((token) => token.length > 2)
 }
 
+function normalizeComparableText(value: string | null | undefined) {
+  return (value ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function answersExactlyMatch(
+  questionType: string | null,
+  answerA: AnswerRecord | undefined,
+  answerB: AnswerRecord | undefined
+) {
+  const normalizedType = normalizeType(questionType)
+
+  if (!answerA || !answerB) {
+    return false
+  }
+
+  if (normalizedType === 'short_text' || normalizedType === 'fill_blank') {
+    const textA = normalizeComparableText(answerA.answer_text)
+    const textB = normalizeComparableText(answerB.answer_text)
+    return textA.length > 0 && textA === textB
+  }
+
+  return answerA.answer_index !== null && answerA.answer_index === answerB.answer_index
+}
+
 function scoreStructuredDistance(a: number, b: number, maxDistance: number) {
   const distance = Math.abs(a - b)
   const closeness = Math.max(0, 1 - distance / Math.max(1, maxDistance))
@@ -204,35 +232,51 @@ Deno.serve(async (req) => {
       const catMax: Record<string, number> = {}
       const strongMatchesByCategory: Record<string, number> = {}
       const textSignalsByCategory: Record<string, number> = {}
+      const exactMatchesByCategory: Record<string, number> = {}
+      const questionCountsByCategory: Record<string, number> = {}
+      let allSharedAnswersExact = true
       for (const c of CATEGORIES) {
         catEarned[c] = 0
         catMax[c] = 0
         strongMatchesByCategory[c] = 0
         textSignalsByCategory[c] = 0
+        exactMatchesByCategory[c] = 0
+        questionCountsByCategory[c] = 0
       }
 
       for (const qid of shared) {
         const question = questionMap[qid]
         const result = scorePairAnswer(question?.question_type, aA[qid], bA[qid])
+        const exactMatch = answersExactlyMatch(question?.question_type, aA[qid], bA[qid])
         earned += result.earned
         max += result.max
 
         const cat = question?.category
         if (cat) {
+          questionCountsByCategory[cat] += 1
           catEarned[cat] += result.earned
           catMax[cat] += result.max
+          if (exactMatch) exactMatchesByCategory[cat] += 1
           if (result.strongMatch) strongMatchesByCategory[cat] += 1
           if (result.textSignal) textSignalsByCategory[cat] += 1
+        }
+
+        if (!exactMatch) {
+          allSharedAnswersExact = false
         }
       }
 
       if (max === 0) continue
 
-      const total = Math.round((earned / max) * 100)
+      const total = allSharedAnswersExact ? 100 : Math.round((earned / max) * 100)
       const catScores: Record<string, number> = {}
       for (const c of CATEGORIES) {
-        catScores[c] = catMax[c] > 0
-          ? Math.round((catEarned[c] / catMax[c]) * 100) : 0
+        if (questionCountsByCategory[c] > 0 && exactMatchesByCategory[c] === questionCountsByCategory[c]) {
+          catScores[c] = 100
+        } else {
+          catScores[c] = catMax[c] > 0
+            ? Math.round((catEarned[c] / catMax[c]) * 100) : 0
+        }
       }
 
       const topCats = topCategories(catScores, 3)
@@ -251,11 +295,17 @@ Deno.serve(async (req) => {
         reasons.push(`Even your written answers showed overlap, especially around ${formatCategoryName(textHeavyCategory[0]).toLowerCase()}.`)
       }
 
-      if (reasons.length === 0) {
+      if (allSharedAnswersExact) {
+        reasons.length = 0
+        reasons.push('You answered every shared question in exactly the same way, which is why this match reached a full 100%.')
+        reasons.push('That level of overlap is rare, and it showed up consistently across the entire question set.')
+      } else if (reasons.length === 0) {
         reasons.push('The match came from a steady pattern across multiple answers rather than a single overlap.')
       }
 
-      const summary = topCats.length >= 2
+      const summary = allSharedAnswersExact
+        ? `You matched perfectly across all ${shared.length} shared answers, so this result is a true 100% alignment.`
+        : topCats.length >= 2
         ? `Your strongest alignment shows up in ${formatCategoryName(topCats[0][0]).toLowerCase()} and ${formatCategoryName(topCats[1][0]).toLowerCase()}, with a broader pattern that still holds across the rest of the batch questions.`
         : `This pairing came from a steady compatibility pattern across ${shared.length} shared answers.`
 
