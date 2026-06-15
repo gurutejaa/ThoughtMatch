@@ -131,6 +131,16 @@ export default function Waiting() {
           reveal_ready: batchPayload.reveal_ready ?? false
         });
 
+        if (route === "reveal") {
+          router.push("/reveal");
+          return;
+        }
+
+        if (route === "daily") {
+          router.push("/daily");
+          return;
+        }
+
         setState({
           name: profile?.name,
           batchId: currentBatchId,
