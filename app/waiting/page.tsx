@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { usePreviewMode } from "@/lib/preview";
 import { getRouteForUser } from "@/lib/routing";
 import { supabase } from "@/lib/supabase";
@@ -25,6 +26,7 @@ type BatchStatusResponse = {
 };
 
 export default function Waiting() {
+  const router = useRouter();
   const previewMode = usePreviewMode();
   const [state, setState] = useState<WaitingState>({});
   const [message, setMessage] = useState<string | null>(null);
@@ -121,13 +123,13 @@ export default function Waiting() {
         if (route === "register") {
           setMessage("You are not in the current active batch.");
         } else if (batchPayload.reveal_ready && !hasActiveMatch) {
-          setMessage("You were not matched this round.");
+          setMessage("You weren't matched this round. You're automatically in the next batch.");
         } else if (registrationClosesAt && serverNow < registrationClosesAt) {
-          setMessage("Registration is open. You are in the batch.");
+          setMessage("Registration is open. Your spot is confirmed.");
         } else if (questionClosesAt && serverNow < questionClosesAt) {
-          setMessage("Questions are live right now.");
+          setMessage("Questions are live. Head to your questions now.");
         } else {
-          setMessage("Results are being prepared.");
+          setMessage("Your answers are in. Results are being prepared.");
         }
       } finally {
         setIsCheckingUpdates(false);
@@ -145,65 +147,64 @@ export default function Waiting() {
     return () => window.clearInterval(interval);
   }, [previewMode]);
 
+  const registrationOpen = state.closesAt ? new Date(state.closesAt).getTime() > now : false;
+  const questionsOpen =
+    !registrationOpen &&
+    state.questionClosesAt
+      ? new Date(state.questionClosesAt).getTime() > now
+      : false;
+  const noMatchThisRound = Boolean(state.revealReady && state.hasActiveMatch === false);
+  const batchStatusLabel = questionsOpen
+    ? "Questions live"
+    : registrationOpen
+      ? "Registration open"
+      : state.revealReady
+        ? "Reveal phase"
+        : "Waiting for results";
+
   return (
-    <main className="flex min-h-screen items-center px-6 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-[#FEF7F0] px-6 py-10 text-[#292524]">
       <div className="tm-shell">
-        {message ? <p className="mb-4 text-sm text-[var(--muted)]">{message}</p> : null}
-        <p className="mb-3 text-xs text-[var(--muted)]">Checking for updates...</p>
-        <section
-          className="rounded-[2rem] p-6 text-white shadow-[var(--shadow)]"
-          style={{ backgroundImage: "linear-gradient(155deg,var(--hero-start),var(--hero-end))" }}
-        >
-          <p className="tm-kicker text-sm text-white/60">Waiting Room</p>
-          <h1 className="mt-3 text-4xl font-semibold">You're in the batch.</h1>
-          <p className="tm-whisper mt-2 text-lg text-white/80">We wait until the full batch is locked before matching begins.</p>
-          <p className="mt-4 text-sm leading-6 text-white/72">
-            {state.name ? `${state.name}, ` : ""}
-            registration is complete. Once the batch locks, daily questions will begin and your match will start forming.
-          </p>
+        <section className="rounded-[24px] border border-[#FDE5D4] bg-white px-6 py-8 shadow-[0_10px_30px_rgba(0,0,0,0.03)]">
+          <div className="text-center">
+            <h1
+              className="text-[2.5rem] font-medium leading-none text-[#292524]"
+              style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+            >
+              {state.name ?? "ThoughtMatch"}
+            </h1>
+            <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-[#A8A29E]">{batchStatusLabel}</p>
+          </div>
 
-          <div
-            className="mt-8 rounded-[1.5rem] p-4"
-            style={{ border: "1px solid var(--hero-border)", background: "var(--hero-overlay)" }}
-          >
-            <p className="tm-kicker text-xs text-white/50">Current batch status</p>
-            <p className="mt-2 text-2xl font-medium capitalize">{state.status ?? "Pending"}</p>
-            <p className="mt-3 text-sm text-white/68">
-              Registration closes at: {state.closesAt ? new Date(state.closesAt).toLocaleString() : "Waiting for schedule"}
+          {message ? <p className="mt-6 text-center text-[15px] leading-7 text-[#292524]">{message}</p> : null}
+
+          <div className="mt-6 space-y-2 text-center text-[13px] text-[#78716C]">
+            <p>
+              Registration closes at:{" "}
+              {state.closesAt ? new Date(state.closesAt).toLocaleString() : "Waiting for schedule"}
             </p>
-            <p className="mt-2 text-sm text-white/68">
-              Question window closes at: {state.questionClosesAt ? new Date(state.questionClosesAt).toLocaleString() : "Waiting for schedule"}
-            </p>
-            {state.closesAt && new Date(state.closesAt).getTime() > now ? (
-              <p className="mt-2 text-xs text-white/58">
-                Questions open automatically when this timer ends.
-              </p>
-            ) : null}
-            {state.closesAt && new Date(state.closesAt).getTime() <= now && !state.revealReady ? (
-              <p className="mt-2 text-xs text-white/58">
-                Once everyone finishes, the admin will run matching and reveal the results.
-              </p>
-            ) : null}
-            {state.revealReady && !state.hasActiveMatch ? (
-              <p className="mt-2 text-xs text-white/58">
-                Results are being prepared.
-              </p>
-            ) : null}
-            {isCheckingUpdates ? (
-              <p className="mt-2 text-xs text-white/58">
-                Checking for updates...
+            {questionsOpen ? (
+              <p>
+                Question window closes at:{" "}
+                {state.questionClosesAt ? new Date(state.questionClosesAt).toLocaleString() : "Waiting for schedule"}
               </p>
             ) : null}
           </div>
-        </section>
 
-        <section className="tm-panel mt-5 rounded-[2rem] p-5">
-          <p className="text-sm font-medium text-[var(--foreground)]">What happens next</p>
-          <div className="mt-4 space-y-3 text-sm leading-6 text-[var(--muted)]">
-            <p>1. The active batch locks after the registration window ends.</p>
-            <p>2. You receive a small set of behavior-based questions each day.</p>
-            <p>3. Your final reveal explains not only who matched with you, but why.</p>
-          </div>
+          {questionsOpen ? (
+            <button
+              type="button"
+              onClick={() => router.push("/daily")}
+              className="mt-6 h-11 w-full rounded-lg bg-[#C2410C] px-4 text-sm font-medium text-white transition-all duration-200 ease-in-out hover:bg-[#9A3412]"
+            >
+              Answer Questions
+            </button>
+          ) : null}
+
+          {!questionsOpen && !registrationOpen && !noMatchThisRound && !state.revealReady ? (
+            <p className="mt-6 text-center text-[13px] text-[#78716C]">Checking for updates...</p>
+          ) : null}
+          {isCheckingUpdates ? <p className="mt-4 text-center text-[12px] text-[#A8A29E]">Checking for updates...</p> : null}
         </section>
       </div>
     </main>
