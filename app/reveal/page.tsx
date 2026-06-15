@@ -139,20 +139,22 @@ export default function Reveal() {
   useEffect(() => {
     if (score === 0) return;
 
-    let current = 0;
-    const timer = window.setInterval(() => {
-      current += 2;
+    const duration = 2000;
+    const start = performance.now();
+    let frameId = 0;
 
-      if (current >= score) {
-        setAnimScore(score);
-        window.clearInterval(timer);
-        return;
+    const animate = (timestamp: number) => {
+      const progress = Math.min((timestamp - start) / duration, 1);
+      setAnimScore(Math.round(score * progress));
+
+      if (progress < 1) {
+        frameId = window.requestAnimationFrame(animate);
       }
+    };
 
-      setAnimScore(current);
-    }, 20);
+    frameId = window.requestAnimationFrame(animate);
 
-    return () => window.clearInterval(timer);
+    return () => window.cancelAnimationFrame(frameId);
   }, [score]);
 
   if (!match) {
