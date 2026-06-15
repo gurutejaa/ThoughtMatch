@@ -62,6 +62,8 @@ type UserRow = {
   name: string | null;
   email: string | null;
   gender: string | null;
+  phone?: string | null;
+  date_of_birth?: string | null;
 };
 
 type IssueRow = {
@@ -193,6 +195,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   const questionsSet = readParam(searchParams.questionsSet);
   const questionsClosed = readParam(searchParams.questionsClosed);
   const batchCreated = readParam(searchParams.batchCreated);
+  const view = readParam(searchParams.view) ?? "active-batch";
 
   if (!isAuthed) {
     return (
@@ -230,6 +233,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   let matches: Array<{ id: string; userA: string; userB: string; score: number }> = [];
   let matchDetails: MatchDetail[] = [];
   let adminUsers: AdminUserItem[] = [];
+  let participantUsers: UserRow[] = [];
   const activeDomain = (activeBatch as ActiveBatch | null)?.domain?.[0] ?? null;
 
   let currentStage: DashboardStage = "matching";
@@ -364,9 +368,11 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
 
     if (userIds.length > 0) {
       const [{ data: users }, { data: issues }] = await Promise.all([
-        supabase.from("users").select("id, name, email, gender").in("id", userIds).order("name"),
+        supabase.from("users").select("id, name, email, gender, phone, date_of_birth").in("id", userIds).order("name"),
         supabase.from("issues").select("id, user_id, description, status, created_at").in("user_id", userIds).order("created_at", { ascending: false })
       ]);
+
+      participantUsers = (users ?? []) as UserRow[];
 
       const matchIds = new Set(matchUserIds);
       const issuesByUser = new Map<string, IssueRow[]>();
@@ -377,7 +383,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
         issuesByUser.set(issue.user_id, items);
       }
 
-      adminUsers = ((users ?? []) as UserRow[]).map((user) => {
+      adminUsers = participantUsers.map((user) => {
         const now = Date.now();
         const registrationClosesAt = activeBatch.registration_closes_at ? new Date(activeBatch.registration_closes_at).getTime() : null;
         const questionClosesAt = activeBatch.question_closes_at ? new Date(activeBatch.question_closes_at).getTime() : null;
@@ -449,6 +455,15 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
     revealed === "true" ? "Reveal is now live for this batch." : null
   ].filter(Boolean) as string[];
 
+  const showActiveBatch = view === "active-batch";
+  const showParticipants = view === "participants";
+  const showTimeline = view === "timeline";
+  const showOperations = view === "operations";
+  const showDashboard = view === "dashboard";
+  const showRunMatching = view === "run-matching";
+  const showReveal = view === "reveal";
+  const showResults = view === "results";
+
   return (
     <AdminShell>
       <div className={inter.className}>
@@ -488,6 +503,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
             </section>
           ) : (
             <>
+              {(showActiveBatch || showDashboard || showTimeline) ? (
               <section className={cardClassName()}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -506,7 +522,9 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   </div>
                 </div>
               </section>
+              ) : null}
 
+              {(showActiveBatch || showDashboard) ? (
               <section className="grid grid-cols-3 gap-4">
                 <div className={cardClassName()}>
                   <div className="flex items-center justify-between">
@@ -533,7 +551,9 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   <p className="mt-2 text-[10px] uppercase tracking-[0.08em] text-[#A8A29E]">Current batch pairs</p>
                 </div>
               </section>
+              ) : null}
 
+              {(showActiveBatch || showTimeline) ? (
               <section className={cardClassName()}>
                 {sectionLabel("Timeline")}
                 <div className="mt-4 grid grid-cols-4 gap-3">
@@ -559,7 +579,9 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   })}
                 </div>
               </section>
+              ) : null}
 
+              {(showActiveBatch || showOperations) ? (
               <section className="grid grid-cols-2 gap-4">
                 <div className={cardClassName()}>
                   {sectionLabel("Controls")}
@@ -628,7 +650,9 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   </div>
                 </div>
               </section>
+              ) : null}
 
+              {(showRunMatching || showReveal || showActiveBatch) ? (
               <section className={cardClassName()}>
                 {sectionLabel("Matching")}
                 <div className="mt-4 grid grid-cols-2 gap-3">
@@ -646,7 +670,9 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   </form>
                 </div>
               </section>
+              ) : null}
 
+              {(showResults || showRunMatching || showReveal) ? (
               <section className={cardClassName()}>
                 {sectionLabel("Matches")}
                 {!matches.length ? (
@@ -763,8 +789,47 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   </div>
                 )}
               </section>
+              ) : null}
 
-              <UserIssuePanel users={adminUsers} />
+              {showParticipants ? (
+                <>
+                  <section className={cardClassName()}>
+                    {sectionLabel("Participants")}
+                    {!participantUsers.length ? (
+                      <p className="mt-4 text-[13px] text-[#78716C]">No users registered in the active batch yet.</p>
+                    ) : (
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full border-collapse text-left text-[13px]">
+                          <thead>
+                            <tr className="border-b border-[#FDE5D4] text-[#78716C]">
+                              <th className="pb-3 font-medium">Name</th>
+                              <th className="pb-3 font-medium">Phone</th>
+                              <th className="pb-3 font-medium">Email</th>
+                              <th className="pb-3 font-medium">Gender</th>
+                              <th className="pb-3 font-medium">Date of birth</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {participantUsers.map((user, index) => (
+                              <tr key={user.id} className={`${index % 2 === 0 ? "bg-white" : "bg-[#FEF7F0]"} border-b border-[#FDE5D4] last:border-b-0`}>
+                                <td className="py-3 text-[#292524]">{user.name ?? "Unknown"}</td>
+                                <td className="py-3 text-[#292524]">{user.phone ?? "Not provided"}</td>
+                                <td className="py-3 text-[#292524]">{user.email ?? "Not provided"}</td>
+                                <td className="py-3 text-[#292524]">{user.gender ?? "Not set"}</td>
+                                <td className="py-3 text-[#292524]">
+                                  {user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString() : "Not provided"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </section>
+
+                  <UserIssuePanel users={adminUsers} />
+                </>
+              ) : null}
             </>
           )}
         </div>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   Activity,
   ChevronLeft,
@@ -22,30 +24,32 @@ const groups = [
   {
     label: "Batch",
     items: [
-      { icon: Layers3, text: "Active Batch" },
-      { icon: Users, text: "Participants" },
-      { icon: TimerReset, text: "Timeline" }
+      { icon: Layers3, text: "Active Batch", view: "active-batch" },
+      { icon: Users, text: "Participants", view: "participants" },
+      { icon: TimerReset, text: "Timeline", view: "timeline" }
     ]
   },
   {
     label: "Controls",
     items: [
-      { icon: Settings2, text: "Operations" },
-      { icon: Gauge, text: "Dashboard" }
+      { icon: Settings2, text: "Operations", view: "operations" },
+      { icon: Gauge, text: "Dashboard", view: "dashboard" }
     ]
   },
   {
     label: "Matching",
     items: [
-      { icon: Activity, text: "Run Matching" },
-      { icon: PlayCircle, text: "Reveal" },
-      { icon: Sparkles, text: "Results" }
+      { icon: Activity, text: "Run Matching", view: "run-matching" },
+      { icon: PlayCircle, text: "Reveal", view: "reveal" },
+      { icon: Sparkles, text: "Results", view: "results" }
     ]
   }
 ];
 
 export default function AdminShell({ children }: AdminShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const searchParams = useSearchParams();
+  const activeView = searchParams.get("view") ?? "active-batch";
 
   return (
     <div className="min-h-screen bg-[#FEF7F0] text-[#292524]">
@@ -79,10 +83,16 @@ export default function AdminShell({ children }: AdminShellProps) {
                 <div className="space-y-1">
                   {group.items.map((item) => {
                     const Icon = item.icon;
+                    const isActive = activeView === item.view;
                     return (
-                      <div
+                      <Link
                         key={item.text}
-                        className="flex h-9 items-center gap-3 rounded-md px-2 text-[#78716C] transition-all duration-200 ease-in-out hover:bg-[#FEF7F0] hover:text-[#C2410C]"
+                        href={`/admin?view=${item.view}`}
+                        className={`flex h-9 items-center gap-3 rounded-md px-2 transition-all duration-200 ease-in-out ${
+                          isActive
+                            ? "bg-[#FFF7ED] text-[#C2410C]"
+                            : "text-[#78716C] hover:bg-[#FEF7F0] hover:text-[#C2410C]"
+                        }`}
                       >
                         <Icon size={16} className="shrink-0" />
                         <span
@@ -90,7 +100,7 @@ export default function AdminShell({ children }: AdminShellProps) {
                         >
                           {item.text}
                         </span>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
