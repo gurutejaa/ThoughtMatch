@@ -39,6 +39,24 @@ export default function Daily() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [questionsClosed, setQuestionsClosed] = useState(false);
   const [completedAllQuestions, setCompletedAllQuestions] = useState(false);
+  const [transitionStage, setTransitionStage] = useState<"idle" | "exit" | "enter">("enter");
+
+  function getCategoryLabel(type: QuestionType) {
+    switch (type) {
+      case "slider":
+        return "Decision style";
+      case "binary":
+        return "Instinct check";
+      case "short_text":
+        return "Written reflection";
+      case "fill_blank":
+        return "Open prompt";
+      case "options":
+      case "multiple_choice":
+      default:
+        return "Daily rhythm";
+    }
+  }
 
   useEffect(() => {
     async function init() {
@@ -168,6 +186,7 @@ export default function Daily() {
       setCompletedAllQuestions(false);
       setQuestionsClosed(false);
       setStatusMessage(null);
+      setTransitionStage("enter");
     }
 
     void init();
@@ -211,18 +230,24 @@ export default function Daily() {
 
   function advanceToNextQuestion(delayMs: number) {
     window.setTimeout(() => {
-      setResponseValue(null);
-      setFeedbackPercent(null);
-      setIsSubmitting(false);
+      setTransitionStage("exit");
 
-      if (current + 1 >= questions.length) {
-        setCompletedAllQuestions(true);
-        setQuestions([]);
-        setStatusMessage("You completed all questions. Results are being prepared.");
-        return;
-      }
+      window.setTimeout(() => {
+        setResponseValue(null);
+        setFeedbackPercent(null);
+        setIsSubmitting(false);
 
-      setCurrent((value) => value + 1);
+        if (current + 1 >= questions.length) {
+          setCompletedAllQuestions(true);
+          setQuestions([]);
+          setStatusMessage("You completed all questions. Results are being prepared.");
+          return;
+        }
+
+        setCurrent((value) => value + 1);
+        setTransitionStage("enter");
+        window.setTimeout(() => setTransitionStage("idle"), 300);
+      }, 300);
     }, delayMs);
   }
 
@@ -270,16 +295,20 @@ export default function Daily() {
 
   if (statusMessage && (questionsClosed || completedAllQuestions || !currentQuestion)) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6">
-        <p className="text-sm text-[var(--muted)]">{statusMessage}</p>
+      <main className="flex min-h-screen items-center justify-center bg-[#FEF7F0] px-6">
+        <div className="rounded-2xl border border-[#FDE5D4] bg-white px-6 py-8 text-center">
+          <p className="text-sm text-[#78716C]">{statusMessage}</p>
+        </div>
       </main>
     );
   }
 
   if (!currentQuestion) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6">
-        <p className="text-sm text-[var(--muted)]">{statusMessage ?? "Loading today's questions..."}</p>
+      <main className="flex min-h-screen items-center justify-center bg-[#FEF7F0] px-6">
+        <div className="rounded-2xl border border-[#FDE5D4] bg-white px-6 py-8 text-center">
+          <p className="text-sm text-[#78716C]">{statusMessage ?? "Loading today's questions..."}</p>
+        </div>
       </main>
     );
   }
@@ -292,28 +321,57 @@ export default function Daily() {
     : [];
 
   return (
-    <main className="flex min-h-screen justify-center bg-white px-6 pt-6">
-      <div className="w-full max-w-[420px]">
-        <QuestionCard
-          question={currentQuestion.text}
-          questionType={questionType}
-          options={options}
-          value={responseValue}
-          disabled={isSubmitting}
-          onChange={(value) => setResponseValue(value)}
-          onSubmit={handleSubmitAnswer}
-        />
+    <main className="flex min-h-screen justify-center bg-[#FEF7F0] px-6 py-8">
+      <div className="flex w-full max-w-[560px] flex-col justify-between">
+        <div
+          className={
+            transitionStage === "exit"
+              ? "translate-x-[-48px] opacity-0 transition-all duration-300 ease-in-out"
+              : transitionStage === "enter"
+                ? "translate-x-[48px] opacity-0 [animation:dailyCardIn_300ms_ease-out_forwards]"
+                : "translate-x-0 opacity-100 transition-all duration-300 ease-in-out"
+          }
+        >
+          <QuestionCard
+            categoryLabel={getCategoryLabel(questionType)}
+            question={currentQuestion.text}
+            questionType={questionType}
+            options={options}
+            value={responseValue}
+            disabled={isSubmitting}
+            onChange={(value) => setResponseValue(value)}
+            onSubmit={handleSubmitAnswer}
+          />
+        </div>
 
         {feedbackPercent !== null ? (
-          <p className="mt-6 text-center text-[13px] text-black">{feedbackPercent}% of people chose this</p>
+          <p className="mt-6 text-center text-[13px] text-[#78716C]">{feedbackPercent}% of people chose this</p>
         ) : null}
 
-        <div className="mt-8 flex items-center justify-center text-[13px] text-black">
-          <span>
-            {current + 1} of {questions.length}
-          </span>
+        <div className="mt-10 flex items-center justify-center gap-2">
+          {questions.map((question, index) => (
+            <span
+              key={question.id}
+              className={`h-2.5 w-2.5 rounded-full transition-all duration-200 ${
+                index === current ? "bg-[#C2410C]" : "border border-[#FDE5D4] bg-white"
+              }`}
+            />
+          ))}
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes dailyCardIn {
+          from {
+            opacity: 0;
+            transform: translateX(48px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
     </main>
   );
 }
