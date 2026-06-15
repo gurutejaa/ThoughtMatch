@@ -24,6 +24,13 @@ import {
 } from "@/app/admin/actions";
 import RefreshButton from "@/app/admin/refresh-button";
 import UserIssuePanel, { type AdminUserItem } from "@/app/admin/user-issue-panel";
+import {
+  formatCategoryName,
+  getAnswerLabel,
+  scorePairAnswer,
+  type AdminAnswerRecord,
+  type AdminQuestionRecord
+} from "@/lib/admin-match-breakdown";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const inter = Inter({
@@ -39,6 +46,9 @@ type MatchRow = {
   user_a: string;
   user_b: string;
   total_score: number | null;
+  match_summary?: string | null;
+  match_reasons?: string[] | null;
+  shared_answer_count?: number | null;
 };
 
 type DomainRow = {
@@ -75,6 +85,29 @@ type ActiveBatch = {
 };
 
 type DashboardStage = "registration" | "questions" | "matching" | "reveal";
+
+type MatchBreakdownRow = {
+  questionId: string;
+  dayNumber: number | null;
+  orderInDay: number | null;
+  category: string;
+  questionText: string;
+  userAAnswer: string;
+  userBAnswer: string;
+  score: number;
+  exactMatch: boolean;
+};
+
+type MatchDetail = {
+  id: string;
+  userA: string;
+  userB: string;
+  score: number;
+  summary: string | null;
+  reasons: string[];
+  sharedAnswerCount: number;
+  breakdown: MatchBreakdownRow[];
+};
 
 function readParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -132,6 +165,22 @@ function buttonClassName({
   return "inline-flex h-9 items-center justify-center rounded-md border border-[#FDE5D4] bg-white px-3 text-[13px] font-medium text-[#292524] transition-all duration-200 ease-in-out hover:border-[#C2410C] hover:bg-[#FFF7ED] hover:text-[#C2410C]";
 }
 
+function comparisonPill(score: number, exactMatch: boolean) {
+  if (exactMatch) {
+    return "border-[#C2410C] bg-[#FFF7ED] text-[#C2410C]";
+  }
+
+  if (score >= 80) {
+    return "border-[#E7D5C7] bg-[#FFFCF8] text-[#8C5B3C]";
+  }
+
+  if (score >= 50) {
+    return "border-[#FDE5D4] bg-white text-[#78716C]";
+  }
+
+  return "border-[#F4D4D4] bg-[#FFF8F8] text-[#9F1239]";
+}
+
 export default async function AdminPage(props: { searchParams?: SearchParams }) {
   const cookieStore = await cookies();
   const isAuthed = cookieStore.get(ADMIN_COOKIE)?.value === "1";
@@ -179,6 +228,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   let totalRegistered = 0;
   let completedAllQuestions = 0;
   let matches: Array<{ id: string; userA: string; userB: string; score: number }> = [];
+  let matchDetails: MatchDetail[] = [];
   let adminUsers: AdminUserItem[] = [];
   const activeDomain = (activeBatch as ActiveBatch | null)?.domain?.[0] ?? null;
 
@@ -194,7 +244,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
         supabase.from("batch_registrations").select("user_id").eq("batch_id", activeBatch.id),
         supabase
           .from("matches")
-          .select("id, user_a, user_b, total_score")
+          .select("id, user_a, user_b, total_score, match_summary, match_reasons, shared_answer_count")
           .eq("batch_id", activeBatch.id)
           .order("total_score", { ascending: false })
       ]);
@@ -233,6 +283,84 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
       userB: userNames.get(match.user_b) ?? "Unknown",
       score: Math.round(match.total_score ?? 0)
     }));
+
+    if (typedMatches.length > 0 && matchUserIds.length > 0) {
+      const [{ data: questionRows }, { data: answerRows }] = await Promise.all([
+        supabase
+          .from("questions")
+          .select("id, text, category, question_type, option_a, option_b, option_c, option_d, day_number, order_in_day")
+          .order("day_number")
+          .order("order_in_day"),
+        supabase
+          .from("answers")
+          .select("user_id, question_id, answer_index, answer_text")
+          .eq("batch_id", activeBatch.id)
+          .in("user_id", matchUserIds)
+      ]);
+
+      const questionsById = new Map<string, AdminQuestionRecord>(
+        ((questionRows ?? []) as AdminQuestionRecord[]).map((question) => [question.id, question])
+      );
+      const answersByUser = new Map<string, Map<string, AdminAnswerRecord>>();
+
+      for (const answer of (answerRows ?? []) as AdminAnswerRecord[]) {
+        if (!answersByUser.has(answer.user_id)) {
+          answersByUser.set(answer.user_id, new Map<string, AdminAnswerRecord>());
+        }
+
+        answersByUser.get(answer.user_id)?.set(answer.question_id, answer);
+      }
+
+      matchDetails = typedMatches.map((match) => {
+        const userAAnswers = answersByUser.get(match.user_a) ?? new Map<string, AdminAnswerRecord>();
+        const userBAnswers = answersByUser.get(match.user_b) ?? new Map<string, AdminAnswerRecord>();
+        const sharedQuestionIds = Array.from(userAAnswers.keys()).filter((questionId) => userBAnswers.has(questionId));
+
+        const breakdown = sharedQuestionIds
+          .map((questionId) => {
+            const question = questionsById.get(questionId);
+            if (!question) {
+              return null;
+            }
+
+            const answerA = userAAnswers.get(questionId);
+            const answerB = userBAnswers.get(questionId);
+            const result = scorePairAnswer(question.question_type, answerA, answerB);
+
+            return {
+              questionId,
+              dayNumber: question.day_number ?? null,
+              orderInDay: question.order_in_day ?? null,
+              category: formatCategoryName(question.category),
+              questionText: question.text,
+              userAAnswer: getAnswerLabel(question, answerA),
+              userBAnswer: getAnswerLabel(question, answerB),
+              score: result.max > 0 ? Math.round((result.earned / result.max) * 100) : 0,
+              exactMatch: result.exactMatch
+            } satisfies MatchBreakdownRow;
+          })
+          .filter((item): item is MatchBreakdownRow => item !== null)
+          .sort((a, b) => {
+            const dayDiff = (a.dayNumber ?? 0) - (b.dayNumber ?? 0);
+            if (dayDiff !== 0) {
+              return dayDiff;
+            }
+
+            return (a.orderInDay ?? 0) - (b.orderInDay ?? 0);
+          });
+
+        return {
+          id: match.id,
+          userA: userNames.get(match.user_a) ?? "Unknown",
+          userB: userNames.get(match.user_b) ?? "Unknown",
+          score: Math.round(match.total_score ?? 0),
+          summary: match.match_summary ?? null,
+          reasons: match.match_reasons ?? [],
+          sharedAnswerCount: match.shared_answer_count ?? breakdown.length,
+          breakdown
+        };
+      });
+    }
 
     if (userIds.length > 0) {
       const [{ data: users }, { data: issues }] = await Promise.all([
@@ -524,25 +652,114 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                 {!matches.length ? (
                   <p className="mt-4 text-[13px] text-[#78716C]">No matches created yet.</p>
                 ) : (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="w-full border-collapse text-left text-[13px]">
-                      <thead>
-                        <tr className="border-b border-[#FDE5D4] text-[#78716C]">
-                          <th className="pb-3 font-medium">User A</th>
-                          <th className="pb-3 font-medium">User B</th>
-                          <th className="pb-3 text-right font-medium">Score</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {matches.map((match, index) => (
-                          <tr key={match.id} className={`${index % 2 === 0 ? "bg-white" : "bg-[#FEF7F0]"} border-b border-[#FDE5D4] last:border-b-0`}>
-                            <td className="py-3 text-[#292524]">{match.userA}</td>
-                            <td className="py-3 text-[#292524]">{match.userB}</td>
-                            <td className="py-3 text-right font-medium text-[#292524]">{match.score}%</td>
+                  <div className="mt-4 space-y-4">
+                    {matchDetails[0] ? (
+                      <div className="rounded-xl border border-[#FDE5D4] bg-[#FFFCF8] p-4">
+                        <p className="text-[10px] uppercase tracking-[0.08em] text-[#A8A29E]">Top Percentage Pair</p>
+                        <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+                          <div>
+                            <p className="text-[20px] font-semibold text-[#292524]">
+                              {matchDetails[0].userA} + {matchDetails[0].userB}
+                            </p>
+                            <p className="mt-1 text-[13px] text-[#78716C]">
+                              Based on {matchDetails[0].sharedAnswerCount} shared answers
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[28px] font-bold leading-none text-[#C2410C]">{matchDetails[0].score}%</p>
+                            <p className="mt-1 text-[11px] uppercase tracking-[0.08em] text-[#A8A29E]">Best current match</p>
+                          </div>
+                        </div>
+                        {matchDetails[0].summary ? (
+                          <p className="mt-4 text-[13px] leading-6 text-[#78716C]">{matchDetails[0].summary}</p>
+                        ) : null}
+                        {matchDetails[0].reasons.length > 0 ? (
+                          <div className="mt-4 grid gap-2">
+                            {matchDetails[0].reasons.map((reason) => (
+                              <div key={reason} className="rounded-md border border-[#FDE5D4] bg-white px-3 py-2 text-[13px] text-[#78716C]">
+                                {reason}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse text-left text-[13px]">
+                        <thead>
+                          <tr className="border-b border-[#FDE5D4] text-[#78716C]">
+                            <th className="pb-3 font-medium">User A</th>
+                            <th className="pb-3 font-medium">User B</th>
+                            <th className="pb-3 text-right font-medium">Score</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {matches.map((match, index) => (
+                            <tr key={match.id} className={`${index % 2 === 0 ? "bg-white" : "bg-[#FEF7F0]"} border-b border-[#FDE5D4] last:border-b-0`}>
+                              <td className="py-3 text-[#292524]">{match.userA}</td>
+                              <td className="py-3 text-[#292524]">{match.userB}</td>
+                              <td className="py-3 text-right font-medium text-[#292524]">{match.score}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="space-y-3">
+                      {matchDetails.map((detail) => (
+                        <details key={detail.id} className="rounded-xl border border-[#FDE5D4] bg-white open:bg-[#FFFCF8]">
+                          <summary className="cursor-pointer list-none px-4 py-3">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <p className="text-[14px] font-semibold text-[#292524]">
+                                  {detail.userA} vs {detail.userB}
+                                </p>
+                                <p className="mt-1 text-[12px] text-[#78716C]">Question-by-question comparison</p>
+                              </div>
+                              <span className="rounded-full border border-[#FDE5D4] bg-white px-3 py-1 text-[12px] font-medium text-[#C2410C]">
+                                {detail.score}%
+                              </span>
+                            </div>
+                          </summary>
+
+                          <div className="border-t border-[#FDE5D4] px-4 py-4">
+                            {detail.summary ? (
+                              <p className="mb-4 text-[13px] leading-6 text-[#78716C]">{detail.summary}</p>
+                            ) : null}
+
+                            <div className="space-y-3">
+                              {detail.breakdown.map((row) => (
+                                <div key={row.questionId} className="rounded-lg border border-[#FDE5D4] bg-white p-4">
+                                  <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <div>
+                                      <p className="text-[10px] uppercase tracking-[0.08em] text-[#A8A29E]">
+                                        Day {row.dayNumber ?? "-"} · {row.category}
+                                      </p>
+                                      <p className="mt-2 text-[14px] font-medium leading-6 text-[#292524]">{row.questionText}</p>
+                                    </div>
+                                    <span className={`rounded-full border px-3 py-1 text-[12px] font-medium ${comparisonPill(row.score, row.exactMatch)}`}>
+                                      {row.exactMatch ? "Exact match" : `${row.score}% similarity`}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                    <div className="rounded-md border border-[#FDE5D4] bg-[#FEF7F0] p-3">
+                                      <p className="text-[10px] uppercase tracking-[0.08em] text-[#A8A29E]">{detail.userA}</p>
+                                      <p className="mt-2 text-[13px] leading-6 text-[#292524]">{row.userAAnswer}</p>
+                                    </div>
+                                    <div className="rounded-md border border-[#FDE5D4] bg-[#FEF7F0] p-3">
+                                      <p className="text-[10px] uppercase tracking-[0.08em] text-[#A8A29E]">{detail.userB}</p>
+                                      <p className="mt-2 text-[13px] leading-6 text-[#292524]">{row.userBAnswer}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </details>
+                      ))}
+                    </div>
                   </div>
                 )}
               </section>
