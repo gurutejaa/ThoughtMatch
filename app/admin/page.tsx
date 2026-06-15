@@ -23,6 +23,7 @@ import {
   setQuestionWindow
 } from "@/app/admin/actions";
 import RefreshButton from "@/app/admin/refresh-button";
+import UserIssuePanel, { type AdminUserItem } from "@/app/admin/user-issue-panel";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const inter = Inter({
@@ -44,6 +45,21 @@ type DomainRow = {
   id: string;
   name: string;
   partner_name: string;
+};
+
+type UserRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  gender: string | null;
+};
+
+type IssueRow = {
+  id: string;
+  user_id: string;
+  description: string;
+  status: "open" | "in-progress" | "resolved";
+  created_at: string;
 };
 
 type ActiveBatch = {
@@ -163,6 +179,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
   let totalRegistered = 0;
   let completedAllQuestions = 0;
   let matches: Array<{ id: string; userA: string; userB: string; score: number }> = [];
+  let adminUsers: AdminUserItem[] = [];
   const activeDomain = (activeBatch as ActiveBatch | null)?.domain?.[0] ?? null;
 
   let currentStage: DashboardStage = "matching";
@@ -185,6 +202,7 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
     totalRegistered = registrationCount ?? 0;
     const requiredAnswers = questionCount ?? 0;
     const userIds = (registrations ?? []).map((registration) => registration.user_id);
+    const answerCounts = new Map<string, number>();
 
     if (userIds.length > 0) {
       const { data: answers } = await supabase
@@ -193,7 +211,6 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
         .eq("batch_id", activeBatch.id)
         .in("user_id", userIds);
 
-      const answerCounts = new Map<string, number>();
       for (const answer of answers ?? []) {
         answerCounts.set(answer.user_id, (answerCounts.get(answer.user_id) ?? 0) + 1);
       }
@@ -216,6 +233,52 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
       userB: userNames.get(match.user_b) ?? "Unknown",
       score: Math.round(match.total_score ?? 0)
     }));
+
+    if (userIds.length > 0) {
+      const [{ data: users }, { data: issues }] = await Promise.all([
+        supabase.from("users").select("id, name, email, gender").in("id", userIds).order("name"),
+        supabase.from("issues").select("id, user_id, description, status, created_at").in("user_id", userIds).order("created_at", { ascending: false })
+      ]);
+
+      const matchIds = new Set(matchUserIds);
+      const issuesByUser = new Map<string, IssueRow[]>();
+
+      for (const issue of (issues ?? []) as IssueRow[]) {
+        const items = issuesByUser.get(issue.user_id) ?? [];
+        items.push(issue);
+        issuesByUser.set(issue.user_id, items);
+      }
+
+      adminUsers = ((users ?? []) as UserRow[]).map((user) => {
+        const now = Date.now();
+        const registrationClosesAt = activeBatch.registration_closes_at ? new Date(activeBatch.registration_closes_at).getTime() : null;
+        const questionClosesAt = activeBatch.question_closes_at ? new Date(activeBatch.question_closes_at).getTime() : null;
+        const completedQuestions = requiredAnswers > 0 && (answerCounts.get(user.id) ?? 0) >= requiredAnswers;
+        const hasMatch = matchIds.has(user.id);
+
+        let currentStatus = "Waiting";
+        if (activeBatch.reveal_ready) {
+          currentStatus = hasMatch ? "Matched" : "No match yet";
+        } else if (registrationClosesAt && now < registrationClosesAt) {
+          currentStatus = "Registered";
+        } else if (questionClosesAt && now < questionClosesAt) {
+          currentStatus = completedQuestions ? "Completed questions" : "Questions live";
+        } else {
+          currentStatus = completedQuestions ? "Waiting for matching" : "Question window closed";
+        }
+
+        return {
+          id: user.id,
+          name: user.name ?? "Unknown",
+          email: user.email ?? "No email",
+          gender: user.gender ?? null,
+          completedQuestions,
+          hasMatch,
+          currentStatus,
+          issues: issuesByUser.get(user.id) ?? []
+        };
+      });
+    }
 
     const now = Date.now();
     const registrationClosesAt = activeBatch.registration_closes_at ? new Date(activeBatch.registration_closes_at).getTime() : null;
@@ -483,6 +546,8 @@ export default async function AdminPage(props: { searchParams?: SearchParams }) 
                   </div>
                 )}
               </section>
+
+              <UserIssuePanel users={adminUsers} />
             </>
           )}
         </div>

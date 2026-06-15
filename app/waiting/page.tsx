@@ -25,10 +25,17 @@ type BatchStatusResponse = {
   current_time?: string;
 };
 
+type NotificationItem = {
+  id: string;
+  message: string;
+  created_at: string;
+};
+
 export default function Waiting() {
   const router = useRouter();
   const previewMode = usePreviewMode();
   const [state, setState] = useState<WaitingState>({});
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [isCheckingUpdates, setIsCheckingUpdates] = useState(false);
@@ -49,6 +56,7 @@ export default function Waiting() {
           revealReady: false,
           hasActiveMatch: false
         });
+        setNotifications([]);
         return;
       }
 
@@ -61,11 +69,36 @@ export default function Waiting() {
 
         if (!user) {
           setState({});
+          setNotifications([]);
           setMessage("Open registration to join the current batch.");
           return;
         }
 
-        const { data: profile } = await supabase.from("users").select("name").eq("id", user.id).maybeSingle();
+        const { data: profile } = await supabase.from("users").select("name, verified").eq("id", user.id).maybeSingle();
+
+        if (profile && profile.verified === false) {
+          await supabase.auth.signOut();
+          router.push("/register");
+          return;
+        }
+
+        const { data: unreadNotifications } = await supabase
+          .from("notifications")
+          .select("id, message, created_at")
+          .eq("user_id", user.id)
+          .eq("read", false)
+          .order("created_at", { ascending: false });
+
+        const notificationItems = (unreadNotifications ?? []) as NotificationItem[];
+        setNotifications(notificationItems);
+
+        if (notificationItems.length > 0) {
+          await supabase
+            .from("notifications")
+            .update({ read: true })
+            .eq("user_id", user.id)
+            .in("id", notificationItems.map((item) => item.id));
+        }
 
         const response = await fetch("/api/batch-status", { cache: "no-store" });
         const batchPayload = (await response.json()) as BatchStatusResponse;
@@ -173,8 +206,19 @@ export default function Waiting() {
             >
               {state.name ?? "ThoughtMatch"}
             </h1>
-            <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-[#A8A29E]">{batchStatusLabel}</p>
+          <p className="mt-3 text-[10px] uppercase tracking-[0.12em] text-[#A8A29E]">{batchStatusLabel}</p>
           </div>
+
+          {notifications.length > 0 ? (
+            <div className="mt-6 space-y-3">
+              {notifications.map((notification) => (
+                <div key={notification.id} className="rounded-xl border border-[#FDE5D4] bg-[#FFF7ED] px-4 py-3 text-left">
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-[#A8A29E]">Admin update</p>
+                  <p className="mt-2 text-[14px] leading-6 text-[#292524]">{notification.message}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           {message ? <p className="mt-6 text-center text-[15px] leading-7 text-[#292524]">{message}</p> : null}
 

@@ -3,10 +3,25 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const ADMIN_COOKIE = "thoughtmatch-admin";
+
+export type AdminActionResult = {
+  ok: boolean;
+  message: string;
+};
+
+function success(message: string): AdminActionResult {
+  return { ok: true, message };
+}
+
+function failure(message: string): AdminActionResult {
+  return { ok: false, message };
+}
 
 async function requireAdmin() {
   const cookieStore = await cookies();
@@ -23,7 +38,7 @@ async function requireAdminAndBatch() {
   const supabase = await requireAdmin();
   const { data: batch } = await supabase
     .from("batches")
-    .select("id")
+    .select("id, registration_closes_at, question_closes_at, reveal_ready")
     .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(1)
@@ -33,7 +48,47 @@ async function requireAdminAndBatch() {
     redirect("/admin?error=no-active-batch");
   }
 
-  return { supabase, batchId: batch.id };
+  return { supabase, batch };
+}
+
+async function getAppBaseUrl() {
+  const headerStore = await headers();
+  const forwardedHost = headerStore.get("x-forwarded-host");
+  const host = forwardedHost ?? headerStore.get("host");
+  const protocol = headerStore.get("x-forwarded-proto") ?? (process.env.NODE_ENV === "production" ? "https" : "http");
+
+  if (host) {
+    return `${protocol}://${host}`;
+  }
+
+  return "http://localhost:3000";
+}
+
+async function logAdminAction(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  {
+    userId,
+    action,
+    details
+  }: {
+    userId: string;
+    action: string;
+    details: string;
+  }
+) {
+  await supabase.from("admin_logs").insert({
+    user_id: userId,
+    action,
+    details
+  });
+}
+
+function refreshAdminViews() {
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/waiting");
+  revalidatePath("/register");
+  revalidatePath("/verify");
 }
 
 export async function loginAdmin(formData: FormData) {
@@ -56,7 +111,7 @@ export async function loginAdmin(formData: FormData) {
 }
 
 export async function runMatching() {
-  const { batchId } = await requireAdminAndBatch();
+  const { batch } = await requireAdminAndBatch();
 
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -72,7 +127,7 @@ export async function runMatching() {
       Authorization: `Bearer ${serviceRoleKey}`,
       apikey: serviceRoleKey
     },
-    body: JSON.stringify({ batch_id: batchId }),
+    body: JSON.stringify({ batch_id: batch.id }),
     cache: "no-store"
   });
 
@@ -87,12 +142,12 @@ export async function runMatching() {
 }
 
 export async function doReveal() {
-  const { supabase, batchId } = await requireAdminAndBatch();
+  const { supabase, batch } = await requireAdminAndBatch();
 
   const { error } = await supabase
     .from("batches")
     .update({ reveal_ready: true })
-    .eq("id", batchId);
+    .eq("id", batch.id);
 
   if (error) {
     redirect(`/admin?error=${encodeURIComponent(error.message)}`);
@@ -113,7 +168,7 @@ function parseMinutes(value: FormDataEntryValue | null, fallback: number) {
 }
 
 export async function openRegistrationNow(formData: FormData) {
-  const { supabase, batchId } = await requireAdminAndBatch();
+  const { supabase, batch } = await requireAdminAndBatch();
   const registrationMinutes = parseMinutes(formData.get("registration_minutes"), 30);
   const questionMinutes = parseMinutes(formData.get("question_minutes"), 60);
   const now = Date.now();
@@ -128,7 +183,7 @@ export async function openRegistrationNow(formData: FormData) {
       question_closes_at: questionClosesAt,
       reveal_ready: false
     })
-    .eq("id", batchId);
+    .eq("id", batch.id);
 
   if (error) {
     redirect(`/admin?error=${encodeURIComponent(error.message)}`);
@@ -138,7 +193,7 @@ export async function openRegistrationNow(formData: FormData) {
 }
 
 export async function closeRegistrationNow() {
-  const { supabase, batchId } = await requireAdminAndBatch();
+  const { supabase, batch } = await requireAdminAndBatch();
 
   const { error } = await supabase
     .from("batches")
@@ -146,7 +201,7 @@ export async function closeRegistrationNow() {
       registration_closes_at: new Date(Date.now() - 60 * 1000).toISOString(),
       reveal_ready: false
     })
-    .eq("id", batchId);
+    .eq("id", batch.id);
 
   if (error) {
     redirect(`/admin?error=${encodeURIComponent(error.message)}`);
@@ -156,7 +211,7 @@ export async function closeRegistrationNow() {
 }
 
 export async function setQuestionWindow(formData: FormData) {
-  const { supabase, batchId } = await requireAdminAndBatch();
+  const { supabase, batch } = await requireAdminAndBatch();
   const questionMinutes = parseMinutes(formData.get("question_minutes"), 60);
   const questionClosesAt = new Date(Date.now() + questionMinutes * 60 * 1000).toISOString();
 
@@ -166,7 +221,7 @@ export async function setQuestionWindow(formData: FormData) {
       question_closes_at: questionClosesAt,
       reveal_ready: false
     })
-    .eq("id", batchId);
+    .eq("id", batch.id);
 
   if (error) {
     redirect(`/admin?error=${encodeURIComponent(error.message)}`);
@@ -176,7 +231,7 @@ export async function setQuestionWindow(formData: FormData) {
 }
 
 export async function closeQuestionsNow() {
-  const { supabase, batchId } = await requireAdminAndBatch();
+  const { supabase, batch } = await requireAdminAndBatch();
 
   const { error } = await supabase
     .from("batches")
@@ -184,7 +239,7 @@ export async function closeQuestionsNow() {
       question_closes_at: new Date().toISOString(),
       reveal_ready: false
     })
-    .eq("id", batchId);
+    .eq("id", batch.id);
 
   if (error) {
     redirect(`/admin?error=${encodeURIComponent(error.message)}`);
@@ -264,4 +319,245 @@ export async function createNewBatch(formData: FormData) {
   }
 
   redirect(`/admin?batchCreated=true&registrationOpened=${registrationMinutes}&questionsSet=${questionMinutes}`);
+}
+
+export async function createIssueForUser(userId: string, description: string): Promise<AdminActionResult> {
+  const supabase = await requireAdmin();
+  const trimmedDescription = description.trim();
+
+  if (!trimmedDescription) {
+    return failure("Add an issue description first.");
+  }
+
+  const { error } = await supabase.from("issues").insert({
+    user_id: userId,
+    description: trimmedDescription,
+    status: "open"
+  });
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId,
+    action: "issue_created",
+    details: trimmedDescription
+  });
+
+  refreshAdminViews();
+  return success("Issue logged.");
+}
+
+export async function updateIssueStatus(issueId: string, status: "open" | "in-progress" | "resolved"): Promise<AdminActionResult> {
+  const supabase = await requireAdmin();
+  const { data: issue, error: lookupError } = await supabase
+    .from("issues")
+    .select("id, user_id")
+    .eq("id", issueId)
+    .maybeSingle();
+
+  if (lookupError || !issue) {
+    return failure(lookupError?.message ?? "Issue not found.");
+  }
+
+  const { error } = await supabase
+    .from("issues")
+    .update({ status })
+    .eq("id", issueId);
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId: issue.user_id,
+    action: "issue_status_updated",
+    details: `Issue ${issueId} set to ${status}.`
+  });
+
+  refreshAdminViews();
+  return success(`Issue marked ${status}.`);
+}
+
+export async function resendOtpForUser(userId: string): Promise<AdminActionResult> {
+  const supabase = await requireAdmin();
+  const { data: user, error: userError } = await supabase
+    .from("users")
+    .select("email")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (userError || !user?.email) {
+    return failure(userError?.message ?? "User email not found.");
+  }
+
+  const baseUrl = await getAppBaseUrl();
+  const { error } = await supabase.auth.signInWithOtp({
+    email: user.email,
+    options: {
+      shouldCreateUser: true,
+      emailRedirectTo: `${baseUrl}/verify`
+    }
+  });
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId,
+    action: "otp_resent",
+    details: `OTP resent to ${user.email}.`
+  });
+
+  refreshAdminViews();
+  return success("OTP email resent.");
+}
+
+export async function resetUserRegistration(userId: string): Promise<AdminActionResult> {
+  const { supabase, batch } = await requireAdminAndBatch();
+
+  const { error } = await supabase
+    .from("batch_registrations")
+    .delete()
+    .eq("batch_id", batch.id)
+    .eq("user_id", userId);
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId,
+    action: "registration_reset",
+    details: `Removed batch registration from active batch ${batch.id}.`
+  });
+
+  refreshAdminViews();
+  return success("Registration reset. User can register again for this batch.");
+}
+
+export async function extendQuestionWindowForUser(userId: string, minutes: number): Promise<AdminActionResult> {
+  const { supabase, batch } = await requireAdminAndBatch();
+  const safeMinutes = Math.min(Math.max(Math.round(minutes), 1), 24 * 60);
+  const currentCloseTime = batch.question_closes_at ? new Date(batch.question_closes_at).getTime() : Date.now();
+  const nextCloseTime = new Date(Math.max(currentCloseTime, Date.now()) + safeMinutes * 60 * 1000).toISOString();
+
+  const { error } = await supabase
+    .from("batches")
+    .update({ question_closes_at: nextCloseTime })
+    .eq("id", batch.id);
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId,
+    action: "question_window_extended",
+    details: `Extended active batch question window by ${safeMinutes} minute(s).`
+  });
+
+  refreshAdminViews();
+  return success(`Question window extended by ${safeMinutes} minute(s).`);
+}
+
+export async function forceAdvanceToQuestionsForUser(userId: string): Promise<AdminActionResult> {
+  const { supabase, batch } = await requireAdminAndBatch();
+
+  const { error } = await supabase
+    .from("batches")
+    .update({
+      registration_closes_at: new Date().toISOString(),
+      reveal_ready: false
+    })
+    .eq("id", batch.id);
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId,
+    action: "force_advanced_to_questions",
+    details: `Registration closed immediately for active batch ${batch.id}.`
+  });
+
+  refreshAdminViews();
+  return success("Registration closed. Users can now move into questions.");
+}
+
+export async function forceAdvanceToRevealForUser(userId: string): Promise<AdminActionResult> {
+  const { supabase, batch } = await requireAdminAndBatch();
+
+  const { error } = await supabase
+    .from("batches")
+    .update({ reveal_ready: true })
+    .eq("id", batch.id);
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId,
+    action: "force_advanced_to_reveal",
+    details: `Reveal forced live for active batch ${batch.id}.`
+  });
+
+  refreshAdminViews();
+  return success("Reveal is live now.");
+}
+
+export async function sendCustomMessageToUser(userId: string, message: string): Promise<AdminActionResult> {
+  const supabase = await requireAdmin();
+  const trimmedMessage = message.trim();
+
+  if (!trimmedMessage) {
+    return failure("Add a message first.");
+  }
+
+  const { error } = await supabase.from("notifications").insert({
+    user_id: userId,
+    message: trimmedMessage,
+    read: false
+  });
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId,
+    action: "notification_sent",
+    details: trimmedMessage
+  });
+
+  refreshAdminViews();
+  return success("Message sent to user.");
+}
+
+export async function clearStuckSessionForUser(userId: string): Promise<AdminActionResult> {
+  const supabase = await requireAdmin();
+  const { error } = await supabase
+    .from("users")
+    .update({
+      verified: false,
+      batch_id: null
+    })
+    .eq("id", userId);
+
+  if (error) {
+    return failure(error.message);
+  }
+
+  await logAdminAction(supabase, {
+    userId,
+    action: "session_cleared",
+    details: "Marked user for fresh OTP verification on next app check."
+  });
+
+  refreshAdminViews();
+  return success("User will be forced through OTP again on their next refresh.");
 }
