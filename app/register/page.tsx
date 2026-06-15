@@ -449,14 +449,6 @@ export default function Register() {
 
   return (
     <main className="relative flex min-h-screen justify-center overflow-hidden px-4 py-6" style={registerThemeStyle}>
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 flex items-center justify-center text-[5.5rem] font-semibold tracking-[-0.06em] text-[#C2410C]"
-        style={{ opacity: 0.06, transform: "rotate(-15deg)" }}
-      >
-        ThoughtMatch
-      </div>
-
       <div className="tm-shell relative z-10 max-w-[460px]">
         <div className="rounded-2xl border border-[#FDE5D4] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(0,0,0,0.03)]">
           <div className="mb-4 pt-1">
